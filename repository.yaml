@@ -1,0 +1,4 @@
+# https://developers.home-assistant.io/docs/add-ons/repository#repository-configuration
+name: Acestream Home Assistant
+url: "https://github.com/asopaipa/acestream_ha_addon_arm"
+maintainer: adopaipa <adopaipa@adopaipa.com>
