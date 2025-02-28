@@ -1,6 +1,6 @@
 name: "Zeronet"
 description: "Zeronet para Home Assistant"
-version: "0.1"
+version: "0.2"
 slug: "zeronet_ha"
 init: false
 arch:
