@@ -14,4 +14,4 @@ fi
 export ENABLE_TOR
 export UI_PASSWORD
 
-exec /run_original.sh
+exec /usr/local/bin/run.sh
