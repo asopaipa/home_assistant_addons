@@ -1,4 +1,12 @@
+FROM supersandro2000/zeronet as base
+# Se asume que el run.sh original está en la raíz
+# (ajusta la ruta si es distinto)
+
+# Etapa final: construimos el addon
 FROM supersandro2000/zeronet
+# Copiamos el run.sh original de la etapa base a /original_run.sh
+COPY --from=base /run.sh /original_run.sh
+
 RUN apk add --no-cache bash
 RUN apk add --no-cache jq
 
