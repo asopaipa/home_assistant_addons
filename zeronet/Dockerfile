@@ -11,7 +11,7 @@ RUN apk add --no-cache py3-pip py3-setuptools
 
 RUN python3 -m pip install setuptools
 
-RUN mkdir -p /app/log
+RUN mkdir -p /usr/local/bin/log
 
 
 # Copiar script de ejecución
