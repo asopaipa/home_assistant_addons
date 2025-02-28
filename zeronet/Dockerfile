@@ -18,4 +18,4 @@ COPY run.sh /
 RUN chmod a+x /run.sh
 
 # Configurar entrypoint
-ENTRYPOINT ["/run_home.sh"]
+ENTRYPOINT ["/run.sh"]
