@@ -1,0 +1,19 @@
+name: "AceStream Web Player"
+description: "AceStream Web Player en Home Assistant"
+version: "0.1"
+slug: "acewebplayer"
+init: false
+arch:
+  - armv7
+  - aarch64
+  - amd64
+ports:
+  5000/tcp: 5000
+options:
+  UI_USERNAME: "user"
+  UI_PASSWORD: "user"
+  ACESTREAM_PORT: "6878"
+schema:
+  UI_USERNAME: "str"
+  UI_PASSWORD: "str"
+  ACESTREAM_PORT: "str"
