@@ -1,7 +1,6 @@
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
-RUN apk add --no-cache bash
 RUN apk add --no-cache jq
 
 # Etiquetas para Home Assistant
