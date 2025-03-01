@@ -1,7 +1,7 @@
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
-RUN apk add --no-cache jq
+RUN apt-get update && apt-get -y install jq bash
 
 # Etiquetas para Home Assistant
 LABEL io.hass.version="1.0.0" io.hass.type="addon" io.hass.arch="armhf|armv7|aarch64|amd64"
