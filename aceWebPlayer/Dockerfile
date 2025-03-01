@@ -7,6 +7,8 @@ RUN apk add --no-cache jq
 # Etiquetas para Home Assistant
 LABEL io.hass.version="1.0.0" io.hass.type="addon" io.hass.arch="armhf|armv7|aarch64|amd64"
 
+COPY run.sh /
+
 # Set working directory
 WORKDIR /app
 
@@ -25,7 +27,7 @@ RUN mkdir -p resources
 # Expose port 5000
 EXPOSE 5000
 
-RUN chmod a+x /app/run.sh
+RUN chmod a+x /run.sh
 
 # Configurar entrypoint
-ENTRYPOINT ["/app/run.sh"]
+ENTRYPOINT ["/run.sh"]
