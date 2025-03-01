@@ -1,0 +1,9 @@
+<html>
+<head><title>Index of /</title></head>
+<body>
+<h1>Index of /</h1>
+<hr><pre><a href="../">../</a>{% for fileObj in data['files'] %}
+<a href="{{ fileObj['relPath'] }}">{{ fileObj['name'] }}</a>{{ fileObj['espacios_nombre'] }}{{fileObj['mTime']}}{{ fileObj['espacios_fecha'] }}{{fileObj['size']}}{% endfor %}
+</pre><hr></body>
+</html>
+

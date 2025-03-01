@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>AceStream Player</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-outline-secondary me-2 d-md-none" id="sidebar-toggle">
+                    <i class="bi bi-list"></i>
+                </button>
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="logo">
+            </div>
+            <button id="theme-toggle" class="btn btn-outline-secondary">
+                <i class="bi bi-moon" id="theme-icon"></i>
+            </button>
+        </div>
+
+        <div class="row">
+            <!-- Left column: Channel list -->
+            <div class="col-md-4 sidebar" id="channels-sidebar">
+
+                <form method="post" action="{{ url_for('index') }}">
+                    <button type="submit" name="default_list" id="default_list" value="true" class="btn btn-secondary mb-3" style="display: none;">Cargar listas por defecto</button>
+                </form>
+                <input type="text" id="searchInput" class="form-control mb-3" placeholder="Buscar canal o evento...">
+                <div class="channels-container">
+                    <div class="accordion" id="channelsAccordion">
+                        {% for group in groups %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}">
+                                    {{ group }}
+                                </button>
+                            </h2>
+                            <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#channelsAccordion">
+                                <div class="accordion-body p-0">
+                                    {% for channel in channels if channel.group == group %}
+                                    <div class="channel-item" onclick="loadChannel('{{ channel.id }}')">
+                                        {% if channel.logo %}
+                                        <img src="{{ channel.logo }}" class="channel-logo" alt="{{ channel.name }}">
+                                        {% endif %}
+                                        <div class="channel-info">
+                                            <div class="channel-name">{{ channel.name }}</div>
+                                            {% if channel.current_program %}
+                                            <div class="program-info">
+                                                <small class="current-program">
+                                                    {{ channel.current_program_time.strftime('%H:%M') }} - {{ channel.current_program }}
+                                                </small>
+                                                {% if channel.next_program %}
+                                                <small class="next-program">
+                                                    {{ channel.next_program_time.strftime('%H:%M') }} - {{ channel.next_program }}
+                                                </small>
+                                                {% endif %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <br>
+                    Directos:
+                    <form id="upload-form" method="POST">
+                        <div class="mb-3">
+                        
+                            <div class="input-group">
+                                
+                                <textarea type="text" id="urlInput" name="urlInput" class="form-control" placeholder="Escribe las URL's de tus fuentes m3u">{{ textarea_content }}</textarea>
+                            </div>
+                        
+                        </div>
+                        Películas:
+                         <div class="mb-3">
+                       
+                            <div class="input-group">
+                                
+                                <textarea type="text" id="urlInputPelis" name="urlInputPelis" class="form-control" placeholder="Escribe las URL's de tus fuentes m3u">{{ textarea_content_pelis }}</textarea>
+                            </div>
+                     
+                        </div>
+                        <input class="btn btn-primary" type="checkbox" name="export_strm" value="1" {{ 'checked' if export_strm else '' }} >Exportar strm's
+                        <button class="btn btn-primary" type="submit" name="submit_url" value="true">Cargar</button>
+                    </form>
+                    <br>
+                    <button type="button" id="descargar_m3u_ace" value="true" class="btn btn-secondary w-100 mb-3" style="display: none;">Descargar M3U Directos Acestream</button>
+                    <button type="button" id="descargar_m3u_remote" value="true" class="btn btn-secondary w-100 mb-3" style="display: none;">Descargar M3U Directos Remoto (VLC)</button>
+                    <button type="button" id="descargar_m3u_ace_pelis" value="true" class="btn btn-secondary w-100 mb-3" style="display: none;">Descargar M3U Películas Acestream</button>
+                    <button type="button" id="descargar_m3u_remote_pelis" value="true" class="btn btn-secondary w-100 mb-3" style="display: none;">Descargar M3U Películas Remoto (VLC)</button>
+
+                    
+                    <br>
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <input type="text" id="testInput" class="form-control" placeholder="Escribe la ID del canal">
+                            <button id="testButton" class="btn btn-secondary">Stream</button>
+                        </div>
+                    </div>
+
+                    
+                </div>
+            </div>
+
+            <!-- Right column: Player -->
+            <div class="col-md-8">
+                <div class="player-container">
+                    <div id="player">
+                        <div id="initial-message" class="text-center">
+                            <h4 class="text-muted dark-text-muted">Selecciona un canal para comenzar la reproducción</h4>
+                        </div>
+                        <div id="video-div" style="display: none;">
+                            <video id="video" controls autoplay style="display: none;"></video>
+                            <div id="info_enlaces" style="margin:20px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botón flotante de agenda deportiva -->
+        <button class="btn" id="btn_agenda" onclick="togglePopup()">
+            <i class="bi bi-calendar-event"></i>
+            Agenda deportiva
+        </button>
+
+        <!-- Ventana emergente -->
+        <div id="overlay" onclick="togglePopup()"></div>
+        <div id="popup-window">
+            <div id="popup-header">
+                <i class="bi bi-calendar-event me-2"></i>
+                Agenda Deportiva
+                <button id="close-popup" onclick="togglePopup()">×</button>
+            </div>
+            <iframe id="agenda-iframe" src="https://widgets.futbolenlatv.com/partidos/agenda?color=000&culture=es-ES" sandbox="allow-scripts" scrolling="auto"></iframe>
+        </div>
+
+        
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+      <script>
+        // Función para abrir/cerrar la ventana emergente
+        function togglePopup() {
+            const popup = document.getElementById('popup-window');
+            const overlay = document.getElementById('overlay');
+            const button = document.getElementById('btn_agenda');
+
+            if (popup.style.display === 'none' || popup.style.display === '') {
+                popup.style.display = 'block';
+                overlay.style.display = 'block';
+                button.innerHTML = '<i class="bi bi-calendar-x"></i> Ocultar agenda';
+            } else {
+                popup.style.display = 'none';
+                overlay.style.display = 'none';
+                button.innerHTML = '<i class="bi bi-calendar-event"></i> Agenda deportiva';
+            }
+        }
+
+        // Funcionalidad mejorada para mover la ventana emergente
+        const popupWindow = document.getElementById('popup-window');
+        const popupHeader = document.getElementById('popup-header');
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        function dragStart(e) {
+            if (e.type === "touchstart") {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+
+            if (e.target === popupHeader || e.target.parentElement === popupHeader) {
+                isDragging = true;
+                popupWindow.classList.add('dragging');
+            }
+        }
+
+        function dragEnd() {
+            isDragging = false;
+            popupWindow.classList.remove('dragging');
+        }
+
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+
+                if (e.type === "touchmove") {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                setTranslate(currentX, currentY, popupWindow);
+            }
+        }
+
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+        }
+
+        // Event Listeners para arrastrar
+        popupHeader.addEventListener("touchstart", dragStart, false);
+        popupHeader.addEventListener("mousedown", dragStart, false);
+        document.addEventListener("touchend", dragEnd, false);
+        document.addEventListener("mouseup", dragEnd, false);
+        document.addEventListener("touchmove", drag, false);
+        document.addEventListener("mousemove", drag, false);
+
+        // Prevenir que el iframe interfiera con el arrastre
+        document.getElementById('agenda-iframe').addEventListener('mousedown', function(e) {
+            e.stopPropagation();
+        });
+
+
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const textarea = document.getElementById('urlInput'); // Selecciona el textarea
+            const submitButton = document.getElementById('default_list'); // Selecciona el botón
+            const descargar_m3u_remote = document.getElementById('descargar_m3u_remote'); // Selecciona el botón
+            const descargar_m3u_ace = document.getElementById('descargar_m3u_ace'); // Selecciona el botón
+            const descargar_m3u_remote_pelis = document.getElementById('descargar_m3u_remote_pelis'); // Selecciona el botón
+            const descargar_m3u_ace_pelis = document.getElementById('descargar_m3u_ace_pelis'); // Selecciona el botón
+            const searchInput = document.getElementById('searchInput'); // Selecciona el botón
+
+            
+
+            
+            
+
+            // Función para verificar si el textarea está vacío
+            function toggleButton() {
+                if (textarea.value.trim() === '') {
+                    submitButton.style.display = 'inline';
+                    descargar_m3u_remote.style.display = 'none'; 
+                    descargar_m3u_ace.style.display = 'none';
+                    descargar_m3u_remote_pelis.style.display = 'none'; 
+                    descargar_m3u_ace_pelis.style.display = 'none';
+                    searchInput.style.display = 'none';
+                } else {
+                    submitButton.style.display = 'none'; 
+                    descargar_m3u_remote.style.display = 'inline';
+                    descargar_m3u_ace.style.display = 'inline'; 
+                    descargar_m3u_remote_pelis.style.display = 'inline'; 
+                    descargar_m3u_ace_pelis.style.display = 'inline';
+                    searchInput.style.display = 'inline';
+
+                }
+            }
+
+            // Agrega un evento al textarea para detectar cambios en tiempo real
+            textarea.addEventListener('input', toggleButton);
+
+            // Inicializa el estado del botón al cargar la página
+            toggleButton();
+        });
+    </script>
+</body>
+
+</html>
