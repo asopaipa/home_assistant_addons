@@ -1,0 +1,18 @@
+name: "Zeronet conservacy"
+description: "0net para Home Assistant"
+version: "0.1"
+slug: "zeronet_conservacy_ha"
+init: false
+arch:
+  - armv7
+  - aarch64
+  - amd64
+ports:
+  26552/tcp: 26552
+  43110/tcp: 43110
+options:
+  ENABLE_TOR: "true"
+  UI_PASSWORD: ""
+schema:
+  ENABLE_TOR: "str"
+  UI_PASSWORD: "str"
