@@ -8,6 +8,8 @@ RUN apk --update --no-cache --no-progress add git gcc libffi-dev musl-dev make o
 
 RUN mkdir -p /home/service-0net
 
+COPY . /home/service-0net
+
 WORKDIR /home/service-0net
 
 COPY requirements.txt .
