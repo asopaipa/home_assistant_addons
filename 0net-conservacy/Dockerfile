@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     build-essential \
     jq \
+    git \
     bash
 
 # Copy application files
