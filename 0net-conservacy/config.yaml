@@ -1,6 +1,6 @@
 name: "Zeronet conservacy"
 description: "0net para Home Assistant"
-version: "0.11"
+version: "0.12"
 slug: "zeronet_conservacy_ha"
 init: false
 arch:
