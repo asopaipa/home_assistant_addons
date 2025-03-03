@@ -1,6 +1,6 @@
 name: "Zeronet conservacy"
 description: "0net para Home Assistant"
-version: "0.34"
+version: "0.35"
 slug: "zeronet_conservacy_ha"
 init: false
 arch:
@@ -12,13 +12,11 @@ ports:
   43110/tcp: 43110
 options:
   ENABLE_TOR: "disable"
-  UI_PASSWORD: ""
   TOR_CONTROL_PORT: "9151"
   TOR_SOCKS_PORT: "9150"
   TOR_CONTROL_PASSWD: "changeme"
 schema:
   ENABLE_TOR: "str"
-  UI_PASSWORD: "str"
   TOR_CONTROL_PORT: "str"
   TOR_SOCKS_PORT: "str"
   TOR_CONTROL_PASSWD: "str"
