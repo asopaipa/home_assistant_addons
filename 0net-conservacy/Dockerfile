@@ -1,26 +1,76 @@
-FROM python:3.12-alpine
+# Use the official Python image from the Docker Hub
+FROM python:3.9-slim
 
-# Copiar script de ejecución
-COPY run.sh /
-RUN chmod a+x /run.sh
+LABEL io.hass.version="1.0.0" io.hass.type="addon" io.hass.arch="armhf|armv7|aarch64|amd64"
 
-RUN apk --update --no-cache --no-progress add git gcc libffi-dev musl-dev make openssl g++ autoconf automake libtool bash jq
+# Set the working directory
+WORKDIR /app
 
-RUN mkdir -p /home/service-0net
+# Create the config directory
+RUN mkdir -p /app/config
 
-COPY . /home/service-0net
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    gnupg \
+    gcc \
+    python3-dev \
+    build-essential \
+    jq \
+    bash
 
-WORKDIR /home/service-0net
+# Copy application files
+COPY --chmod=0755 run.sh /run.sh
+#COPY requirements.txt requirements-prod.txt ./
+#COPY migrations/ ./migrations/
+#COPY migrations_app.py manage.py ./
+#COPY wsgi.py ./
+#COPY app/ ./app/
 
-COPY requirements.txt .
+# Install the required dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+#RUN pip install --no-cache-dir -r requirements-prod.txt
 
-RUN python3 -m pip install -r requirements.txt
+# Install ZeroNet dependencies with specific versions
+RUN pip install --no-cache-dir \
+    "msgpack-python" \
+    "gevent==22.10.2" \
+    "PySocks" \
+    "gevent-websocket" \
+    "python-bitcoinlib" \
+    "bencode.py" \
+    "merkletools" \
+    "pysha3" \
+    "cgi-tools" \
+    "urllib3<2.0.0" \
+    "rich" \
+    "requests" \
+    "pyaes" \
+    "coincurve" \
+    "base58" \
+    "defusedxml" \
+    "rsa"
 
-# the part below is updated with source updates
+# Download and install ZeroNet
+RUN mkdir -p ZeroNet && \
+    wget https://github.com/zeronet-conservancy/zeronet-conservancy/archive/refs/heads/master.tar.gz -O ZeroNet.tar.gz && \
+    tar xvf ZeroNet.tar.gz && \
+    mv zeronet-conservancy-master/* ZeroNet/ && \
+    rm -rf ZeroNet.tar.gz zeronet-conservancy-master
 
-COPY . .
+# Set environment variable to indicate Docker environment
+ENV DOCKER_ENV=true
 
+# Expose the ports
+EXPOSE 26552
+EXPOSE 43110
 
+# Clean up APT
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Configurar entrypoint
-ENTRYPOINT ["/run.sh"]
+# Make sure WORKDIR is set correctly
+WORKDIR /app
+
+ENTRYPOINT ["/app/run.sh"]
