@@ -21,7 +21,8 @@ RUN apt-get update && apt-get install -y \
     bash
 
 # Copy application files
-COPY --chmod=0755 run.sh /run.sh
+COPY run.sh /
+RUN chmod a+x /run.sh
 #COPY requirements.txt requirements-prod.txt ./
 #COPY migrations/ ./migrations/
 #COPY migrations_app.py manage.py ./
