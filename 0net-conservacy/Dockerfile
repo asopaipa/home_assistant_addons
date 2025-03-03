@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
 COPY run.sh /
 RUN chmod a+x /run.sh
 COPY requirements.txt .
+COPY . .
 #COPY migrations/ ./migrations/
 #COPY migrations_app.py manage.py ./
 #COPY wsgi.py ./
