@@ -30,7 +30,7 @@ export TOR_CONTROL_PASSWD
 export UID_PORT
 export PORT_FILESERVER
 
-
+mv /app/ZeroNet/plugins/disabled-UiPassword /app/ZeroNet/plugins/UiPassword
 # Setup ZeroNet config if not exists
 ZERONET_CONFIG="/app/config/zeronet.conf"
 if [ ! -f "$ZERONET_CONFIG" ]; then
