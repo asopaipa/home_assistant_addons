@@ -27,6 +27,9 @@ export TOR_SOCKS_PORT
 export TOR_CONTROL_PASSWD
 
 
+echo "Starting building..."
+exec python3 /app/ZeroNet/build.py  
+echo "Starting ZeroNet..."
 
 exec python3 /app/ZeroNet/zeronet.py main 
 
