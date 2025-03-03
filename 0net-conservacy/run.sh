@@ -15,7 +15,3 @@ fi
 cd /app/ZeroNet
 echo "Starting ZeroNet..."
 exec python3 zeronet.py $FLAGS  
-
-#--ui_ip "*" --fileserver_port $PORT_FILESERVER \
-#--tor $ENABLE_TOR --tor_controller tor:$TOR_CONTROL_PORT \
-#--tor_proxy tor:$TOR_SOCKS_PORT --tor_password $TOR_CONTROL_PASSWD --ui_password $UI_PASSWORD
