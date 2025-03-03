@@ -23,14 +23,14 @@ RUN apt-get update && apt-get install -y \
 # Copy application files
 COPY run.sh /
 RUN chmod a+x /run.sh
-COPY requirements.txt ./
+COPY requirements.txt /
 #COPY migrations/ ./migrations/
 #COPY migrations_app.py manage.py ./
 #COPY wsgi.py ./
 #COPY app/ ./app/
 
 # Install the required dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
 #RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Install ZeroNet dependencies with specific versions
@@ -74,4 +74,4 @@ RUN apt-get clean && \
 # Make sure WORKDIR is set correctly
 WORKDIR /app
 
-ENTRYPOINT ["/app/run.sh"]
+ENTRYPOINT ["/run.sh"]
