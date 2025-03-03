@@ -1,7 +1,10 @@
 # Use the official Python image from the Docker Hub
 FROM python:3.9-slim
 
-LABEL io.hass.version="1.0.0" io.hass.type="addon" io.hass.arch="armhf|armv7|aarch64|amd64"
+# Add metadata labels
+LABEL maintainer="asopaipa" \
+      description="ZeroNet conservacy HA addon support" \
+      version="0.30"
 
 # Set the working directory
 WORKDIR /app
@@ -18,21 +21,21 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     build-essential \
     jq \
-    git \
     bash
 
 # Copy application files
+
 COPY run.sh /
 RUN chmod a+x /run.sh
-COPY requirements.txt .
-COPY . .
+COPY requirements.txt ./
+#COPY requirements-prod.txt ./
 #COPY migrations/ ./migrations/
 #COPY migrations_app.py manage.py ./
 #COPY wsgi.py ./
 #COPY app/ ./app/
 
 # Install the required dependencies
-RUN python3 -m pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 #RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Install ZeroNet dependencies with specific versions
@@ -57,17 +60,18 @@ RUN pip install --no-cache-dir \
 
 # Download and install ZeroNet
 RUN mkdir -p ZeroNet && \
-    wget https://github.com/zeronet-conservancy/zeronet-conservancy/archive/refs/heads/main.tar.gz -O ZeroNet.tar.gz && \
+    wget https://github.com/zeronet-conservancy/zeronet-conservancy/archive/refs/heads/master.tar.gz -O ZeroNet.tar.gz && \
     tar xvf ZeroNet.tar.gz && \
-    mv zeronet-conservancy-main/* ZeroNet/ && \
-    rm -rf ZeroNet.tar.gz zeronet-conservancy-main
+    mv zeronet-conservancy-master/* ZeroNet/ && \
+    rm -rf ZeroNet.tar.gz zeronet-conservancy-master
 
 # Set environment variable to indicate Docker environment
 ENV DOCKER_ENV=true
 
 # Expose the ports
-EXPOSE 26552
+EXPOSE 8000
 EXPOSE 43110
+EXPOSE 43111
 
 # Clean up APT
 RUN apt-get clean && \
