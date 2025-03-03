@@ -57,10 +57,10 @@ RUN pip install --no-cache-dir \
 
 # Download and install ZeroNet
 RUN mkdir -p ZeroNet && \
-    wget https://github.com/zeronet-conservancy/zeronet-conservancy/archive/refs/heads/master.tar.gz -O ZeroNet.tar.gz && \
+    wget https://github.com/zeronet-conservancy/zeronet-conservancy/archive/refs/heads/main.tar.gz -O ZeroNet.tar.gz && \
     tar xvf ZeroNet.tar.gz && \
-    mv zeronet-conservancy-master/* ZeroNet/ && \
-    rm -rf ZeroNet.tar.gz zeronet-conservancy-master
+    mv zeronet-conservancy-main/* ZeroNet/ && \
+    rm -rf ZeroNet.tar.gz zeronet-conservancy-main
 
 # Set environment variable to indicate Docker environment
 ENV DOCKER_ENV=true
