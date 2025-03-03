@@ -27,11 +27,9 @@ export TOR_SOCKS_PORT
 export TOR_CONTROL_PASSWD
 
 
-echo "Starting building..."
-exec python3 /app/ZeroNet/build.py  
+cd /app/ZeroNet
 echo "Starting ZeroNet..."
-
-exec python3 /app/ZeroNet/zeronet.py main 
+exec python3 zeronet.py main 
 
 #--ui_ip "*" --fileserver_port $PORT_FILESERVER \
 #    --tor $ENABLE_TOR --tor_controller tor:$TOR_CONTROL_PORT \
