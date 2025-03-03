@@ -33,7 +33,6 @@ if [ ! -f "$ZERONET_CONFIG" ]; then
     echo "Creating default ZeroNet config..."
     cat > "$ZERONET_CONFIG" << EOF
 [global]
-ui_ip = *
 ui_host =
  0.0.0.0
  localhost
