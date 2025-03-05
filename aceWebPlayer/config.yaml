@@ -8,7 +8,7 @@ arch:
   - aarch64
   - amd64
 map:
-  resources: rw
+  resources:rw
 ports:
   5000/tcp: 5000
 options:
