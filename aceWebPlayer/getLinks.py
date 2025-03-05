@@ -19,16 +19,16 @@ def decode_default_url():
     return decrypt(url, key, iv), decrypt(url2, key, iv2)
 
 
-def generar_m3u_from_url(miHost, urls, tipo):
+def generar_m3u_from_url(miHost, urls, tipo, folder):
     # Ruta del diccionario CSV
-    csv_file = "resources/dictionary.csv"
+    csv_file = f"{folder}/dictionary.csv"
     # Archivos de salida
     if tipo == "directos":
-        output_file = "resources/acestream_directos.m3u"
-        output_file_remote = "resources/web_directos.m3u"
+        output_file = f"{folder}/acestream_directos.m3u"
+        output_file_remote = f"{folder}/web_directos.m3u"
     if tipo == "pelis":
-        output_file = "resources/acestream_pelis.m3u"
-        output_file_remote = "resources/web_pelis.m3u"
+        output_file = f"{folder}/acestream_pelis.m3u"
+        output_file_remote = f"{folder}/web_pelis.m3u"
     
     # Cargar el diccionario desde el CSV
     diccionario = {}
