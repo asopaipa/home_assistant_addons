@@ -1,11 +1,10 @@
 name: "AceStream Web Player"
 description: "AceStream Web Player en Home Assistant"
-version: "0.9"
+version: "0.10"
 slug: "acewebplayer"
 init: false
 map:
   - resources:rw
-  - app/resources:rw
 arch:
   - armv7
   - aarch64
