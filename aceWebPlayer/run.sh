@@ -29,10 +29,10 @@ if [ -n "$UI_USERNAME" ]; then
 fi
 
 cd /app
-exec python app.py
+#exec python app.py
 
 set -e
 
 mkdir -p /share/aceWebPlayer
 cd /app
-python ./app.py -d /share/aceWebPlayer
+exec python ./app.py -d /share/aceWebPlayer
