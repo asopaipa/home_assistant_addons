@@ -295,8 +295,8 @@ def index():
             # Procesar cada línea como una URL
             urls = [direccion]
             urls_pelis = [direccion_pelis]
-            generar_m3u_from_url(request.host, urls, "directos")
-            generar_m3u_from_url(request.host, urls_pelis, "pelis")
+            generar_m3u_from_url(request.host, urls, "directos",FOLDER_RESOURCES)
+            generar_m3u_from_url(request.host, urls_pelis, "pelis",FOLDER_RESOURCES)
             textarea_content = direccion
             textarea_content_pelis = direccion_pelis
             export_strm = False
@@ -311,8 +311,8 @@ def index():
             # Procesar cada línea como una URL
             urls = [url.strip() for url in textarea_content.splitlines() if url.strip()]
             urls_pelis = [url.strip() for url in textarea_content_pelis.splitlines() if url.strip()]
-            generar_m3u_from_url(request.host, urls, "directos")
-            generar_m3u_from_url(request.host, urls_pelis, "pelis")
+            generar_m3u_from_url(request.host, urls, "directos",FOLDER_RESOURCES)
+            generar_m3u_from_url(request.host, urls_pelis, "pelis",FOLDER_RESOURCES)
     else:
         # Cargar los datos persistidos desde el archivo
         textarea_content, textarea_content_pelis, export_strm  =  load_from_file(DATA_FILE)
