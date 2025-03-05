@@ -1,11 +1,11 @@
 name: "AceStream Web Player"
 description: "AceStream Web Player en Home Assistant"
-version: "0.7"
+version: "0.8"
 slug: "acewebplayer"
 init: false
 host_config:
   binds:
-  - acestream_ha_addon:/app/resources
+  - acestream_ha_addon:/resources
 arch:
   - armv7
   - aarch64
