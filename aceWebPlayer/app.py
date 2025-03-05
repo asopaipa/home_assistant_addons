@@ -321,17 +321,17 @@ def index():
     if export_strm:
         
         # Procesar directos y películas
-        procesar_directos(f"{FOLDER_RESOURCES}/acestream_directos.m3u", f"{FOLDER_RESOURCES}output_strm/acestream")
-        procesar_peliculas(f"{FOLDER_RESOURCES}/acestream_pelis.m3u", f"{FOLDER_RESOURCES}output_strm/acestream")
+        procesar_directos(f"{FOLDER_RESOURCES}/acestream_directos.m3u", f"{FOLDER_RESOURCES}/output_strm/acestream")
+        procesar_peliculas(f"{FOLDER_RESOURCES}/acestream_pelis.m3u", f"{FOLDER_RESOURCES}/output_strm/acestream")
 
-        procesar_directos(f"{FOLDER_RESOURCES}/web_directos.m3u", f"{FOLDER_RESOURCES}output_strm/web")
-        procesar_peliculas(f"{FOLDER_RESOURCES}/web_pelis.m3u", f"{FOLDER_RESOURCES}output_strm/web")
+        procesar_directos(f"{FOLDER_RESOURCES}/web_directos.m3u", f"{FOLDER_RESOURCES}/output_strm/web")
+        procesar_peliculas(f"{FOLDER_RESOURCES}/web_pelis.m3u", f"{FOLDER_RESOURCES}/output_strm/web")
     else:
-        if os.path.exists(f"{FOLDER_RESOURCES}output_strm/acestream"):
-            shutil.rmtree(f"{FOLDER_RESOURCES}output_strm/acestream")
+        if os.path.exists(f"{FOLDER_RESOURCES}/output_strm/acestream"):
+            shutil.rmtree(f"{FOLDER_RESOURCES}/output_strm/acestream")
 
-        if os.path.exists(f"{FOLDER_RESOURCES}output_strm/web"):
-            shutil.rmtree(f"{FOLDER_RESOURCES}output_strm/web")
+        if os.path.exists(f"{FOLDER_RESOURCES}/output_strm/web"):
+            shutil.rmtree(f"{FOLDER_RESOURCES}/output_strm/web")
     if os.path.exists(f"{FOLDER_RESOURCES}/acestream_directos.m3u") and os.stat(f"{FOLDER_RESOURCES}/acestream_directos.m3u").st_size > 5:
         with open(f"{FOLDER_RESOURCES}/acestream_directos.m3u", 'r', encoding='utf-8') as file:
             content = file.read()
