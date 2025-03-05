@@ -28,11 +28,11 @@ if [ -n "$UI_USERNAME" ]; then
     sed -i "s/PASSWORD = \"\"/PASSWORD = \"$UI_PASSWORD\"/g" /app/app.py
 fi
 
-cd /app
+#cd /app
 #exec python app.py
 
 set -e
 
 mkdir -p /share/aceWebPlayer
-cd /app
-exec python ./app.py -d /share/aceWebPlayer
+#cd /app
+exec python app.py -d /share/aceWebPlayer
