@@ -435,7 +435,7 @@ def procesar_peliculas(m3u_peliculas, directorio_salida):
                     f.write(linea)
 
 
-FolderPath = f"{FOLDER_RESOURCES}/output_strm"
+FolderPath = f"{FOLDER_RESOURCES}/output_strm/"
 
 
 
@@ -475,6 +475,7 @@ def getFiles(reqPath):
 
     # Return 404 if path doesn't exist
     if not os.path.exists(absPath):
+        print(f"No existe {absPath}");
         return abort(403)
 
     # Check if path is a file and serve
