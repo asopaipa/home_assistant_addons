@@ -26,7 +26,7 @@ USERNAME = "" #si está vacía, no se requerirá autenticación
 PASSWORD = ""  
 
 # Ruta del archivo donde se guardarán los datos persistidos
-DATA_FILE = "/app/resources/urls.json"
+DATA_FILE = "/resources/urls.json"
 
 def save_to_file(textarea1, textarea2, checkbox, file_input):
     """
