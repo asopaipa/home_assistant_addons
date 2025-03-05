@@ -21,7 +21,7 @@ def decode_default_url():
 
 def generar_m3u_from_url(miHost, urls, tipo):
     # Ruta del diccionario CSV
-    csv_file = "./resources/dictionary.csv"
+    csv_file = "resources/dictionary.csv"
     # Archivos de salida
     if tipo == "directos":
         output_file = "resources/acestream_directos.m3u"
