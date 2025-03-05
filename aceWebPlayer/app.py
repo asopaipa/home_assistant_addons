@@ -25,8 +25,9 @@ EPG_XML_PATH = os.getenv("EPG_XML_PATH", 'https://epgshare01.online/epgshare01/e
 USERNAME = "" #si está vacía, no se requerirá autenticación
 PASSWORD = ""  
 
+FOLDER_RESOURCES=""
 # Ruta del archivo donde se guardarán los datos persistidos
-DATA_FILE = "resources/urls.json"
+DATA_FILE = ""
 
 def save_to_file(textarea1, textarea2, checkbox, file_input):
     """
@@ -262,7 +263,7 @@ def update_epg_data():
 @requires_auth
 def download_file(filename):
     # Directorio donde están los archivos
-    directory = "resources"
+    
     try:
         # Descargar el archivo
     
@@ -273,7 +274,7 @@ def download_file(filename):
         if filename not in archivos_permitidos:
             abort(403, description="Archivo no autorizado para la descarga.")
         
-        return send_from_directory(directory, filename, as_attachment=True)
+        return send_from_directory(FOLDER_RESOURCES, filename, as_attachment=True)
     except FileNotFoundError:
         return f"El archivo {filename} no existe.", 404
 
@@ -319,19 +320,19 @@ def index():
     if export_strm:
         
         # Procesar directos y películas
-        procesar_directos("resources/acestream_directos.m3u", "output_strm/acestream")
-        procesar_peliculas("resources/acestream_pelis.m3u", "output_strm/acestream")
+        procesar_directos(f"{FOLDER_RESOURCES}/acestream_directos.m3u", "output_strm/acestream")
+        procesar_peliculas(f"{FOLDER_RESOURCES}/acestream_pelis.m3u", "output_strm/acestream")
 
-        procesar_directos("resources/web_directos.m3u", "output_strm/web")
-        procesar_peliculas("resources/web_pelis.m3u", "output_strm/web")
+        procesar_directos(f"{FOLDER_RESOURCES}/web_directos.m3u", "output_strm/web")
+        procesar_peliculas(f"{FOLDER_RESOURCES}/web_pelis.m3u", "output_strm/web")
     else:
         if os.path.exists("output_strm/acestream"):
             shutil.rmtree("output_strm/acestream")
 
         if os.path.exists("output_strm/web"):
             shutil.rmtree("output_strm/web")
-    if os.path.exists("resources/acestream_directos.m3u") and os.stat("resources/acestream_directos.m3u").st_size > 5:
-        with open("resources/acestream_directos.m3u", 'r', encoding='utf-8') as file:
+    if os.path.exists(f"{FOLDER_RESOURCES}/acestream_directos.m3u") and os.stat(f"{FOLDER_RESOURCES}/acestream_directos.m3u").st_size > 5:
+        with open(f"{FOLDER_RESOURCES}/acestream_directos.m3u", 'r', encoding='utf-8') as file:
             content = file.read()
             channels = parse_m3u(content)
     
@@ -357,8 +358,8 @@ def index():
         groups = sorted(list(groups))
 
 
-    if os.path.exists("resources/acestream_pelis.m3u") and os.stat("resources/acestream_pelis.m3u").st_size > 5:
-        with open("resources/acestream_pelis.m3u", 'r', encoding='utf-8') as file:
+    if os.path.exists(f"{FOLDER_RESOURCES}/acestream_pelis.m3u") and os.stat(f"{FOLDER_RESOURCES}/acestream_pelis.m3u").st_size > 5:
+        with open(f"{FOLDER_RESOURCES}/acestream_pelis.m3u", 'r', encoding='utf-8') as file:
             content = file.read()
             channels2 = parse_m3u(content)
             channels.extend(channels2)
@@ -508,6 +509,18 @@ def getFiles(reqPath):
     
     
 if __name__ == '__main__':
+    # Configuramos el parser de argumentos
+    parser = argparse.ArgumentParser(description="Ejemplo de Flask con argumento -d")
+    parser.add_argument("-d", "--directory", help="Directorio para la aplicación", required=False)
+    args = parser.parse_args()
+
+    # Verificamos si se proporcionó el argumento y si el directorio existe
+    FOLDER_RESOURCES="resources"
+    DATA_FILE = "resources/urls.json"
+    if args.directory:
+        if os.path.exists(args.directory):
+            FOLDER_RESOURCES=args.directory
+            DATA_FILE = f"{args.directory}/urls.json"
     # Start EPG updater thread
     updater_thread = threading.Thread(target=update_epg_data)
     updater_thread.daemon = True
