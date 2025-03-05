@@ -28,5 +28,5 @@ if [ -n "$UI_USERNAME" ]; then
     sed -i "s/PASSWORD = \"\"/PASSWORD = \"$UI_PASSWORD\"/g" /app/app.py
 fi
 
-
-exec python /app/app.py
+cd app
+exec python /app.py
