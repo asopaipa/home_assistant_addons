@@ -475,7 +475,7 @@ def getFiles(reqPath):
 
     # Return 404 if path doesn't exist
     if not os.path.exists(absPath):
-        return abort(404)
+        return abort(403)
 
     # Check if path is a file and serve
     if os.path.isfile(absPath):
