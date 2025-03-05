@@ -435,7 +435,7 @@ def procesar_peliculas(m3u_peliculas, directorio_salida):
                     f.write(linea)
 
 
-FolderPath = r"output_strm"
+FolderPath = f"{FOLDER_RESOURCES}/output_strm"
 
 
 
