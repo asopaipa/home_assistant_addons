@@ -82,6 +82,8 @@ def scan():
     result = asyncio.run(scan_streams(url))
     return jsonify(result)
 
+
+
 async def scan_streams(target_url):
     found_streams = []
     async with async_playwright() as p:
@@ -89,17 +91,28 @@ async def scan_streams(target_url):
         context = await browser.new_context()
         page = await context.new_page()
 
-        async def log_request(route, req):
-            url = req.url
+        # Captura de requests
+        async def handle_request(req):
+            url = req.url  
             found_streams.append({
                 "url": url,
                 "headers": dict(req.headers)
             })
-            await route.continue_()
 
-        await context.route("**/*", log_request)
+        page.on("request", handle_request)
+
+        # Captura de responses
+        async def handle_response(res):
+            url = res.url
+            found_streams.append({
+                "url": url,
+                "headers": dict(res.headers)
+            })
+
+        page.on("response", handle_response)
+
         await page.goto(target_url)
-        await page.wait_for_timeout(50000)
+        await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
         await browser.close()
 
     return {"streams": found_streams}
@@ -564,4 +577,4 @@ if __name__ == '__main__':
     updater_thread.daemon = True
     updater_thread.start()
     
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', debug=True)
