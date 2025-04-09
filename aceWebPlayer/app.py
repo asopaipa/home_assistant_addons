@@ -75,7 +75,7 @@ def load_from_file(file_input):
 
 class M3UDownloader(ZeroFrame):
     def __init__(self, site):
-        super().__init__(site, ws_url=config["zeronet_ws_url"])
+        super().__init__(site, ws_url=config_zeronet_ws_url)
         self.site = site
 
     async def on_open(self):
