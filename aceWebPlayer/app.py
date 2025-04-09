@@ -94,6 +94,7 @@ async def scan_streams(target_url):
             found_streams.append({
                 "url": url,
                 "headers": dict(req.headers)
+            })
             await route.continue_()
 
         await context.route("**/*", log_request)
