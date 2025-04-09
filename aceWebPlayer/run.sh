@@ -30,10 +30,11 @@ if [ -n "$UI_USERNAME" ]; then
     sed -i "s/PASSWORD = \"\"/PASSWORD = \"$UI_PASSWORD\"/g" /app.py
 fi
 
+
 if [ -n "$SLUG_ZERONET" ]; then
-    sed -i "s/config_zeronet_ws_url/\"ws://$SLUG_ZERONET:43110/Websocket\"/g" /app.py
+    sed -i "s|config_zeronet_ws_url|\"ws://$SLUG_ZERONET:43110/Websocket\"|g" /app/app.py
 else
-    sed -i "s/config_zeronet_ws_url/\"ws://127.0.0.1:43110/Websocket\"/g" /app.py
+    sed -i "s|config_zeronet_ws_url|\"ws://127.0.0.1:43110/Websocket\"|g" /app/app.py
 fi
 
 #cd /app
