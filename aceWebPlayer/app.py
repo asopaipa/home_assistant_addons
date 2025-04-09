@@ -18,7 +18,7 @@ from werkzeug.utils import safe_join
 from operator import itemgetter
 import asyncio
 from playwright.async_api import async_playwright
-
+from zeroframe_ws_client import ZeroFrame
 
 
 
@@ -73,7 +73,35 @@ def load_from_file(file_input):
     # Si el archivo no existe, devolver valores por defecto
     return "", "", False
 
+class M3UDownloader(ZeroFrame):
+    def __init__(self, site):
+        super().__init__(site)
+        self.site = site
 
+    async def on_open(self):
+        print("~\~E Conectado a ZeroNet WebSocket.")
+
+        file_path = "data/listas/lista_fuera_iptv.m3u"
+
+        try:
+            response = await self.cmd("fileGet", {
+                "inner_path": f"{self.site}/{file_path}"
+            })
+
+            if "result" in response:
+                print("~_~S~D Contenido del archivo:")
+                print(response["result"])
+            else:
+                print("~Z| ~O No se pudo obtener el archivo:", response)
+        except Exception as e:
+            print("~]~L Error al obtener el archivo:", e)
+
+
+@app.route('/zero')
+def zeron():
+    site = "1JKe3VPvFe35bm1aiHdD4p1xcGCkZKhH3Q"
+    downloader = M3UDownloader(site)
+    downloader.run_forever()
 
 
 @app.route('/scan')
