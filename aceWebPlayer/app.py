@@ -75,11 +75,11 @@ def load_from_file(file_input):
 
 class M3UDownloader(ZeroFrame):
     def __init__(self, site):
-        super().__init__(site)
+        super().__init__(site, ws_url=config["zeronet_ws_url"])
         self.site = site
 
     async def on_open(self):
-        print("~\~E Conectado a ZeroNet WebSocket.")
+        print("Conectado a ZeroNet WebSocket.")
 
         file_path = "data/listas/lista_fuera_iptv.m3u"
 
@@ -89,12 +89,12 @@ class M3UDownloader(ZeroFrame):
             })
 
             if "result" in response:
-                print("~_~S~D Contenido del archivo:")
+                print("Contenido del archivo:")
                 print(response["result"])
             else:
-                print("~Z| ~O No se pudo obtener el archivo:", response)
+                print("No se pudo obtener el archivo:", response)
         except Exception as e:
-            print("~]~L Error al obtener el archivo:", e)
+            print("Error al obtener el archivo:", e)
 
 
 @app.route('/zero')
