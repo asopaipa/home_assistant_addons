@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, Response, abort, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, Response, abort, send_file, jsonify
 from getLinks import generar_m3u_from_url, decode_default_url
 import re
 import os
@@ -16,6 +16,10 @@ import argparse
 from pathlib import Path
 from werkzeug.utils import safe_join
 from operator import itemgetter
+import asyncio
+from playwright.async_api import async_playwright
+
+
 
 
 app = Flask(__name__)
@@ -69,7 +73,40 @@ def load_from_file(file_input):
     # Si el archivo no existe, devolver valores por defecto
     return "", "", False
 
-    
+
+
+
+@app.route('/scan')
+def scan():
+    url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
+    result = asyncio.run(scan_streams(url))
+    return jsonify(result)
+
+async def scan_streams(target_url):
+    found_streams = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        async def log_request(route, req):
+            url = req.url
+            if any(x in url for x in ["m3u8", "mp4"]):
+                found_streams.append({
+                    "url": url,
+                    "headers": dict(req.headers)
+                })
+            await route.continue_()
+
+        await context.route("**/*", log_request)
+        await page.goto(target_url)
+        await page.wait_for_timeout(5000)
+        await browser.close()
+
+    return {"streams": found_streams}
+
+
+
 def requires_auth(f):
     def decorated(*args, **kwargs):
         # Si el usuario está vacío, no aplica la autenticación
