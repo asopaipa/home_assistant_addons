@@ -16,7 +16,9 @@ options:
   UI_USERNAME: "user"
   UI_PASSWORD: "user"
   ACESTREAM_PORT: "6878"
+  SLUG_ZERONET: ""
 schema:
   UI_USERNAME: "str"
   UI_PASSWORD: "str"
   ACESTREAM_PORT: "str"
+  SLUG_ZERONET: "str"
