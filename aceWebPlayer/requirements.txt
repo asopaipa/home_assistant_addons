@@ -3,3 +3,4 @@ requests
 pytz
 cryptography
 werkzeug
+playwright
