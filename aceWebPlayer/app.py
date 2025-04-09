@@ -91,16 +91,14 @@ async def scan_streams(target_url):
 
         async def log_request(route, req):
             url = req.url
-            if any(x in url for x in ["m3u8", "mp4"]):
-                found_streams.append({
-                    "url": url,
-                    "headers": dict(req.headers)
-                })
+            found_streams.append({
+                "url": url,
+                "headers": dict(req.headers)
             await route.continue_()
 
         await context.route("**/*", log_request)
         await page.goto(target_url)
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(50000)
         await browser.close()
 
     return {"streams": found_streams}
