@@ -4,3 +4,5 @@ pytz
 cryptography
 werkzeug
 playwright
+setuptools
+zeroframe-ws-client
