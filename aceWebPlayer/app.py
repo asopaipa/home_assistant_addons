@@ -75,9 +75,10 @@ def load_from_file(file_input):
 
 class M3UDownloader(ZeroFrame):
     def __init__(self, site):
+        self.ws_url = config_zeronet_ws_url
         super().__init__(site)
         self.site = site
-        self.ws_url = config_zeronet_ws_url
+        
 
     async def on_open(self):
         print("Conectado a ZeroNet WebSocket.")
