@@ -32,7 +32,7 @@ fi
 
 
 if [ -n "$SLUG_ZERONET" ]; then
-    sed -i "s|config_zeronet_ws_url|\"ws://$SLUG_ZERONET:43110/Websocket\"|g" /app.py
+    sed -i "s|config_zeronet_ws_url|\"ws://172.30.33.8:43110/Websocket\"|g" /app.py
 else
     sed -i "s|config_zeronet_ws_url|\"ws://127.0.0.1:43110/Websocket\"|g" /app.py
 fi
