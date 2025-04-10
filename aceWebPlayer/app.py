@@ -21,7 +21,6 @@ from playwright.async_api import async_playwright
 from zeroframe_ws_client import ZeroFrame
 
 
-
 app = Flask(__name__)
 
 EPG_XML_PATH = os.getenv("EPG_XML_PATH", 'https://epgshare01.online/epgshare01/epg_ripper_ES1.xml.gz')
