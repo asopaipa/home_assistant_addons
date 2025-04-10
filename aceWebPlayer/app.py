@@ -174,6 +174,31 @@ async def scan_streams(target_url):
 
 
 
+@app.route('/scan_zero')
+def scan():
+    url = "http://172.30.33.8:43110/1JKe3VPvFe35bm1aiHdD4p1xcGCkZKhH3Q/data/listas/lista_fuera_iptv.m3u"
+    result = asyncio.run(scan_streams_zero(url))
+    return result
+
+
+
+async def scan_streams_zero(target_url):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+        
+        # Navegar a la URL
+        response = await page.goto(target_url)
+        
+        # Obtener el contenido de la página
+        content = await response.text()
+        
+        await browser.close()
+        return content
+
+
+
 def requires_auth(f):
     def decorated(*args, **kwargs):
         # Si el usuario está vacío, no aplica la autenticación
