@@ -73,10 +73,31 @@ def load_from_file(file_input):
     # Si el archivo no existe, devolver valores por defecto
     return "", "", False
 
-class M3UDownloader(ZeroFrame):
-    def __init__(self, site):
-        self.ws_url = config_zeronet_ws_url
+
+
+
+# Suponiendo que la clase original es algo como esto:
+# class ZeroFrameWsClient:
+#     def __init__(self, site):
+#         self.ws_url = "ws://127.0.0.1:43110/Websocket"
+#         # otros inicializadores...
+
+class CustomZeroFrameClient(ZeroFrame):
+    def __init__(self, site, custom_ws_url=None):
+        # Primero guardamos el site y la URL personalizada
+        self.site = site
+        # Sobrescribimos la URL después de la inicialización si se proporcionó una
+        if custom_ws_url:
+            self.ws_url = custom_ws_url
+        
+        # Creamos una copia de la clase original
         super().__init__(site)
+        
+        
+            
+class M3UDownloader(CustomZeroFrameClient):
+    def __init__(self, site):
+        super().__init__(site, config_zeronet_ws_url)
         self.site = site
         
 
