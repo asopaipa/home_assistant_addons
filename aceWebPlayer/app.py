@@ -173,7 +173,7 @@ async def scan_streams(target_url):
 
 
 
-@app.route('/scan_zero')
+@app.route('/scanzero')
 def scan_zero():
     url = "http://172.30.33.8:43110/1JKe3VPvFe35bm1aiHdD4p1xcGCkZKhH3Q/data/listas/lista_fuera_iptv.m3u"
     result = asyncio.run(scan_streams_zero(url))
