@@ -6,13 +6,11 @@ if [ -f "$CONFIG_FILE" ]; then
     UI_USERNAME=$(jq -r '.UI_USERNAME // "user"' "$CONFIG_FILE")
     UI_PASSWORD=$(jq -r '.UI_PASSWORD // "user"' "$CONFIG_FILE")
     ACESTREAM_PORT=$(jq -r '.ACESTREAM_PORT // "6878"' "$CONFIG_FILE")
-    SLUG_ZERONET=$(jq -r '.SLUG_ZERONET // ""' "$CONFIG_FILE")
 else
     echo "No se encontró $CONFIG_FILE, usando valores por defecto."
     UI_USERNAME="user"
     UI_PASSWORD="user"
     ACESTREAM_PORT="6878"
-    SLUG_ZERONET=""
 fi
 
 
@@ -31,11 +29,7 @@ if [ -n "$UI_USERNAME" ]; then
 fi
 
 
-if [ -n "$SLUG_ZERONET" ]; then
-    sed -i "s|config_zeronet_ws_url|\"ws://172.30.33.8:43110/Websocket\"|g" /app.py
-else
-    sed -i "s|config_zeronet_ws_url|\"ws://127.0.0.1:43110/Websocket\"|g" /app.py
-fi
+
 
 #cd /app
 #exec python app.py
