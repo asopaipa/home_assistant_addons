@@ -471,62 +471,6 @@ def stream():
 
 
 
-def stream22():
-    url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
-    result = asyncio.run(scan_streams(url))
-    print(jsonify(result))
-    # Se utiliza el primer stream de la lista
-    stream_data = result[0]
-    
-    if not stream_data:
-        return "No se ha interceptado ningún stream aún.", 404
-
-    stream_url = stream_data["url"]
-    stream_headers = stream_data["headers"]
-
-    # Construir el string de headers para FFmpeg.
-    # FFmpeg espera los headers en formato "Clave: Valor\r\n"
-    headers_str = "".join(f"{key}: {value}\r\n" for key, value in stream_headers.items())
-
-    # Comando FFmpeg:
-    # - '-headers' envia los headers especificados.
-    # - '-i' indica la URL de entrada (stream interceptado).
-    # - '-c copy' copia el stream sin re-codificarlo (minimizando recursos).
-    # - '-f mpegts' empaqueta la salida en formato MPEG-TS.
-    # - '-' indica que se escribe la salida a stdout.
-    command = [
-        "ffmpeg",
-        "-headers", headers_str,
-        "-i", stream_url,
-        "-c", "copy",
-        "-f", "mpegts",
-        "-"
-    ]
-    
-    # Inicia FFmpeg como un proceso en streaming.
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    def generate():
-        try:
-            while True:
-                chunk = process.stdout.read(1024)
-                if not chunk:
-                    break
-                yield chunk
-        finally:
-            process.kill()
-
-    return Response(stream_with_context(generate()), mimetype="video/mp2t")
-
-
-
-def scan2():
-    url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
-    result = asyncio.run(scan_streams(url))
-    return jsonify(result)
-
-
-
 async def scan_streams(target_url):
     found_streams = []
 
@@ -1028,4 +972,4 @@ if __name__ == '__main__':
     updater_thread.daemon = True
     updater_thread.start()
     
-    app.run(host='0.0.0.0', threaded=True, debug=True)
+    app.run(host='0.0.0.0', threaded=True)
