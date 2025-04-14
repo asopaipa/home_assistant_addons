@@ -1,6 +1,6 @@
 name: "AceStream Web Player"
 description: "AceStream Web Player en Home Assistant"
-version: "0.56"
+version: "0.57"
 slug: "acewebplayer"
 init: false
 arch:
