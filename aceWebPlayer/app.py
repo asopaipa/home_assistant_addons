@@ -153,6 +153,7 @@ def scan():
                         document.getElementById("playlistUrl").innerHTML = data.playlist_url;
                         document.getElementById("playlistUrl").href = data.playlist_url;
                         window.currentStreamUrl = data.playlist_url;
+                        playStream();
                     })
                     .catch(error => {
                         showError("Error: " + error.message);
