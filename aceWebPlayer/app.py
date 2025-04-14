@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, Response, abort, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, Response, abort, send_file, jsonify, render_template_string, stream_with_context
 from getLinks import generar_m3u_from_url, decode_default_url
 import re
 import os
@@ -78,13 +78,84 @@ def load_from_file(file_input):
 
 @app.route('/scan')
 def scan():
+    # Una plantilla HTML mínima con un reproductor HTML5 apuntando al endpoint /stream
+    html = """
+    <!doctype html>
+    <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Reproductor de Stream</title>
+      </head>
+      <body>
+        <h1>Reproductor HTML5</h1>
+        <!-- Ajusta el type según el formato que entregue FFmpeg -->
+        <video controls autoplay width="640">
+          <source src="/stream" type="video/mp2t">
+          Tu navegador no soporta el elemento video.
+        </video>
+      </body>
+    </html>
+    """
+    return render_template_string(html)
+
+
+@app.route('/stream')
+def stream():
+    url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
+    result = asyncio.run(scan_streams(url))
+    # Se utiliza el primer stream de la lista
+    stream_data = result[0]
+    
+    if not stream_data:
+        return "No se ha interceptado ningún stream aún.", 404
+
+    stream_url = stream_data["url"]
+    stream_headers = stream_data["headers"]
+
+    # Construir el string de headers para FFmpeg.
+    # FFmpeg espera los headers en formato "Clave: Valor\r\n"
+    headers_str = "".join(f"{key}: {value}\r\n" for key, value in stream_headers.items())
+
+    # Comando FFmpeg:
+    # - '-headers' envia los headers especificados.
+    # - '-i' indica la URL de entrada (stream interceptado).
+    # - '-c copy' copia el stream sin re-codificarlo (minimizando recursos).
+    # - '-f mpegts' empaqueta la salida en formato MPEG-TS.
+    # - '-' indica que se escribe la salida a stdout.
+    command = [
+        "ffmpeg",
+        "-headers", headers_str,
+        "-i", stream_url,
+        "-c", "copy",
+        "-f", "mpegts",
+        "-"
+    ]
+    
+    # Inicia FFmpeg como un proceso en streaming.
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def generate():
+        try:
+            while True:
+                chunk = process.stdout.read(1024)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            process.kill()
+
+    return Response(stream_with_context(generate()), mimetype="video/mp2t")
+
+
+
+def scan2():
     url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
     result = asyncio.run(scan_streams(url))
     return jsonify(result)
 
 
 
-async def scan_streams(target_url):
+async def scan_streams3(target_url):
     found_streams = []
 
     async with async_playwright() as p:
