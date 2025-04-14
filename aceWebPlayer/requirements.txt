@@ -5,5 +5,4 @@ cryptography
 werkzeug
 playwright
 setuptools
-zeroframe-ws-client
 bs4
