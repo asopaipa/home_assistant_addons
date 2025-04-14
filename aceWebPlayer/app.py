@@ -273,7 +273,7 @@ def clean_old_streams():
             info = active_streams.get(stream_id)
             if info and now - info['last_access'] > 60:  # 60 segundos sin acceso
                 try:
-                    logger.info(f"Limpiando stream inactivo: {stream_id}")
+                    print(f"Limpiando stream inactivo: {stream_id}")
                     if info['process'] and info['process'].poll() is None:
                         info['process'].terminate()
                         info['process'].wait(timeout=5)
@@ -286,7 +286,7 @@ def clean_old_streams():
                     
                     del active_streams[stream_id]
                 except Exception as e:
-                    logger.error(f"Error al limpiar stream {stream_id}: {str(e)}")
+                    print(f"Error al limpiar stream {stream_id}: {str(e)}")
         
         time.sleep(10)  # Revisar cada 10 segundos
 
@@ -338,7 +338,7 @@ def start_ffmpeg_process(stream_url, stream_id, stream_headers):
         for line in iter(process.stderr.readline, b''):
             line = line.decode('utf-8', errors='ignore').strip()
             if line and not line.startswith('frame='):  # Filtrar mensajes de progreso
-                logger.info(f"FFmpeg [{stream_id}]: {line}")
+                print(f"FFmpeg [{stream_id}]: {line}")
     
     error_thread = threading.Thread(target=monitor_errors, daemon=True)
     error_thread.start()
@@ -380,7 +380,7 @@ def create_stream(stream_url):
             'player_url': f"/?stream={quote(playlist_url)}"
         }
     except Exception as e:
-        logger.error(f"Error al crear stream: {str(e)}")
+        print(f"Error al crear stream: {str(e)}")
         return str(e), 500
 
 @app.route('/stream/playlist/<stream_id>/<path:filename>')
@@ -449,10 +449,10 @@ def stream():
             # Manejo de errores
             if process.poll() is not None:
                 error = process.stderr.read().decode('utf-8')
-                logger.error(f"Error en FFmpeg: {error}")
+                print(f"Error en FFmpeg: {error}")
                 
         except Exception as e:
-            logger.error(f"Error en streaming: {str(e)}")
+            print(f"Error en streaming: {str(e)}")
             yield b''
         finally:
             # Asegurar que el proceso termine
