@@ -96,10 +96,11 @@ async def scan_streams(target_url):
         async def handle_request(req):
             url = req.url  
             if any(x in url for x in ["m3u8", "mp4"]):
-                found_streams = [{
+                found_streams.append({
                     "url": url,
-                    "headers": dict(res.headers)
-                }]
+                    "headers": dict(req.headers)
+                })
+                return found_streams
 
         page.on("request", handle_request)
 
@@ -107,10 +108,11 @@ async def scan_streams(target_url):
         async def handle_response(res):
             url = res.url
             if any(x in url for x in ["m3u8", "mp4"]):
-                found_streams = [{
+                found_streams.append({
                     "url": url,
-                    "headers": dict(res.headers)
-                }]
+                    "headers": dict(req.headers)
+                })
+                return found_streams
         
 
         page.on("response", handle_response)
