@@ -77,12 +77,12 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                     
                     # Enviar el formulario
                     response_post = session.post(action_url, data=data, timeout=500)
-                    print("Respuesta del nonce: "+response_post)
+                    print("Respuesta del nonce: "+response_post.text)
                     
                     response_head = requests.head(url, allow_redirects=True, timeout=500)
                     content_type = response_head.headers.get("Content-Type", "").lower()
                     response = requests.get(url, timeout=500)
-                    print("Respuesta del nuevo intento de la llamada a zeronet: "+response)
+                    print("Respuesta del nuevo intento de la llamada a zeronet: "+response.text)
                     
 
 
