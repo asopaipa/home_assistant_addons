@@ -78,54 +78,326 @@ def load_from_file(file_input):
 
 @app.route('/scan')
 def scan():
-    return """
+    # Obtener URL del stream si se proporciona
+    stream_url = request.args.get('stream', '')
+    
+    return f"""
     <html>
     <head>
         <title>Proxy de Streaming HLS</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 20px; }}
+            .container {{ max-width: 800px; margin: 0 auto; }}
+            input[type="text"] {{ width: 80%; padding: 8px; }}
+            button {{ padding: 8px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; }}
+            #player {{ margin-top: 20px; }}
+            video {{ max-width: 100%; }}
+            pre {{ background: #f4f4f4; padding: 10px; border-radius: 5px; overflow: auto; }}
+            .error {{ color: red; }}
+        </style>
     </head>
     <body>
-        <h1>Proxy de Streaming HLS</h1>
-        <p>Uso: /stream/URL_DEL_STREAM</p>
-        <p>Ejemplo: /stream/http://example.com/stream.m3u8</p>
-        
-        <div id="player">
-            <!-- Aquí se mostrará el reproductor -->
+        <div class="container">
+            <h1>Proxy de Streaming HLS</h1>
+            
+            <div>
+                <p>Ingresa la URL del stream de origen:</p>
+                <input type="text" id="sourceUrl" placeholder="http://ejemplo.com/tu_stream.m3u8" />
+                <button onclick="createStream()">Iniciar Stream</button>
+            </div>
+            
+            <div id="result" style="margin-top: 20px; display: none;">
+                <h3>Stream creado:</h3>
+                <p>URL de la playlist: <a href="#" id="playlistUrl"></a></p>
+                <button onclick="playStream()">Reproducir</button>
+            </div>
+            
+            <div id="player" style="margin-top: 20px;">
+                <!-- Aquí se mostrará el reproductor -->
+            </div>
+            
+            <div id="error" class="error" style="margin-top: 20px; display: none;"></div>
         </div>
         
         <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.14/hls.min.js"></script>
         <script>
-            // Ejemplo de uso con un reproductor HLS.js
-            const createPlayer = (streamUrl) => {
-                // Crear elemento de video
-                const video = document.createElement('video');
-                video.controls = true;
-                video.width = 640;
-                video.height = 360;
-                document.getElementById('player').appendChild(video);
+            let videoElement = null;
+            let hlsPlayer = null;
+            
+            // Crear stream desde la URL de origen
+            function createStream() {
+                const sourceUrl = document.getElementById('sourceUrl').value.trim();
+                if (!sourceUrl) {
+                    showError('Por favor ingresa una URL de origen válida');
+                    return;
+                }
+                
+                // Ocultar errores anteriores
+                document.getElementById('error').style.display = 'none';
+                
+                // Mostrar mensaje de carga
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('playlistUrl').innerHTML = 'Creando stream...';
+                
+                // Llamar al endpoint para crear el stream
+                fetch('/stream/start/' + encodeURIComponent(sourceUrl))
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Error al crear el stream');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('playlistUrl').innerHTML = data.playlist_url;
+                        document.getElementById('playlistUrl').href = data.playlist_url;
+                        window.currentStreamUrl = data.playlist_url;
+                    })
+                    .catch(error => {
+                        showError('Error: ' + error.message);
+                    });
+            }
+            
+            // Reproducir el stream actual
+            function playStream() {
+                if (!window.currentStreamUrl) {
+                    showError('No hay un stream disponible para reproducir');
+                    return;
+                }
+                
+                const playerDiv = document.getElementById('player');
+                
+                // Limpiar reproductor existente
+                if (hlsPlayer) {
+                    hlsPlayer.destroy();
+                }
+                if (videoElement) {
+                    videoElement.remove();
+                }
+                
+                // Crear nuevo elemento de video
+                videoElement = document.createElement('video');
+                videoElement.controls = true;
+                videoElement.autoplay = true;
+                videoElement.style.width = '100%';
+                playerDiv.appendChild(videoElement);
                 
                 // Inicializar HLS.js
-                if(Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(streamUrl);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play();
+                if (Hls.isSupported()) {
+                    hlsPlayer = new Hls({
+                        maxBufferLength: 30,
+                        maxMaxBufferLength: 60,
+                        startLevel: -1,           // Auto nivel
+                        debug: false,
+                        xhrSetup: function(xhr) {
+                            xhr.timeout = 30000;  // 30 segundos timeout
+                        }
+                    });
+                    
+                    hlsPlayer.loadSource(window.currentStreamUrl);
+                    hlsPlayer.attachMedia(videoElement);
+                    
+                    hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function() {
+                        videoElement.play()
+                            .catch(e => showError('Error al reproducir: ' + e.message));
+                    });
+                    
+                    hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            console.error('Error fatal HLS:', data);
+                            switch(data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    // Reintentar en caso de error de red
+                                    console.log('Error de red, reintentando...');
+                                    hlsPlayer.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    console.log('Error del media, recuperando...');
+                                    hlsPlayer.recoverMediaError();
+                                    break;
+                                default:
+                                    // Otros errores fatales
+                                    showError('Error en la reproducción. Intenta nuevamente.');
+                                    hlsPlayer.destroy();
+                                    break;
+                            }
+                        }
                     });
                 }
-                else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = streamUrl;
-                    video.addEventListener('loadedmetadata', function() {
-                        video.play();
+                else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Soporte nativo para HLS (Safari)
+                    videoElement.src = window.currentStreamUrl;
+                    videoElement.addEventListener('loadedmetadata', function() {
+                        videoElement.play()
+                            .catch(e => showError('Error al reproducir: ' + e.message));
                     });
+                } else {
+                    showError('Tu navegador no soporta la reproducción de video HLS.');
                 }
-            };
+            }
             
-            // Para probar, descomenta esta línea y reemplaza con una URL válida
-            createPlayer('http://fkoteam.duckdns.org:5000/stream');
+            function showError(message) {
+                const errorDiv = document.getElementById('error');
+                errorDiv.innerHTML = message;
+                errorDiv.style.display = 'block';
+            }
+            
+            // Si hay un stream en la URL, iniciarlo automáticamente
+            const urlParams = new URLSearchParams(window.location.search);
+            const streamParam = urlParams.get('stream');
+            if (streamParam) {
+                window.currentStreamUrl = streamParam;
+                setTimeout(playStream, 500);
+            }
         </script>
     </body>
     </html>
     """
+
+
+
+
+
+
+# Directorio para almacenar temporalmente los segmentos HLS
+TEMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_streams')
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+# Diccionario para mantener el seguimiento de los procesos activos
+active_streams = {}
+
+def clean_old_streams():
+    """Limpia streams antiguos periódicamente"""
+    while True:
+        now = time.time()
+        for stream_id in list(active_streams.keys()):
+            info = active_streams.get(stream_id)
+            if info and now - info['last_access'] > 60:  # 60 segundos sin acceso
+                try:
+                    logger.info(f"Limpiando stream inactivo: {stream_id}")
+                    if info['process'] and info['process'].poll() is None:
+                        info['process'].terminate()
+                        info['process'].wait(timeout=5)
+                        info['process'].kill()
+                    
+                    # Eliminar directorio de segmentos
+                    stream_dir = os.path.join(TEMP_DIR, stream_id)
+                    if os.path.exists(stream_dir):
+                        shutil.rmtree(stream_dir)
+                    
+                    del active_streams[stream_id]
+                except Exception as e:
+                    logger.error(f"Error al limpiar stream {stream_id}: {str(e)}")
+        
+        time.sleep(10)  # Revisar cada 10 segundos
+
+# Iniciar thread de limpieza
+cleanup_thread = threading.Thread(target=clean_old_streams, daemon=True)
+cleanup_thread.start()
+
+def start_ffmpeg_process(stream_url, stream_id, stream_headers):
+    """Inicia un proceso FFmpeg para generar los segmentos HLS"""
+    stream_dir = os.path.join(TEMP_DIR, stream_id)
+    os.makedirs(stream_dir, exist_ok=True)
+    
+    # Ruta para los archivos de playlist y segmentos
+    playlist_path = os.path.join(stream_dir, 'playlist.m3u8')
+    segment_path = os.path.join(stream_dir, 'segment_%03d.ts')
+    
+    # Comando FFmpeg optimizado para streaming
+    cmd = [
+        'ffmpeg',
+        '-i', stream_url,               # URL de entrada
+        '-headers', stream_headers,
+        '-c', 'copy',                   # Copiar sin transcodificar
+        '-f', 'hls',                    # Formato de salida HLS
+        '-hls_time', '2',               # Duración de cada segmento
+        '-hls_list_size', '10',         # Número de segmentos en la playlist
+        '-hls_flags', 'delete_segments',# Eliminar segmentos antiguos
+        '-hls_segment_filename', segment_path,  # Patrón de nombre de segmentos
+        playlist_path                   # Archivo de playlist
+    ]
+    
+    # Iniciar proceso en modo no bloqueante
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=10**8
+    )
+    
+    # Guardar información del proceso
+    active_streams[stream_id] = {
+        'process': process,
+        'stream_url': stream_url,
+        'last_access': time.time(),
+        'stream_dir': stream_dir
+    }
+    
+    # Monitorear errores en un hilo separado
+    def monitor_errors():
+        for line in iter(process.stderr.readline, b''):
+            line = line.decode('utf-8', errors='ignore').strip()
+            if line and not line.startswith('frame='):  # Filtrar mensajes de progreso
+                logger.info(f"FFmpeg [{stream_id}]: {line}")
+    
+    error_thread = threading.Thread(target=monitor_errors, daemon=True)
+    error_thread.start()
+    
+    return stream_id
+
+@app.route('/stream/start/<path:stream_url>')
+def create_stream(stream_url):
+    
+    """Inicia un nuevo stream y devuelve su ID"""
+    try:
+        # Validar URL
+        parsed_url = urlparse()
+        if not all([parsed_url.scheme, parsed_url.netloc]):
+            return "URL inválida", 400
+
+        result = asyncio.run(scan_streams(stream_url))
+        print(jsonify(result))
+        # Se utiliza el primer stream de la lista
+        stream_data = result[0]
+        stream_url = stream_data["url"]
+        stream_headers = stream_data["headers"]
+    
+        # Construir el string de headers para FFmpeg.
+        # FFmpeg espera los headers en formato "Clave: Valor\r\n"
+        headers_str = "".join(f"{key}: {value}\r\n" for key, value in stream_headers.items())
+            
+        # Generar ID único para este stream
+        stream_id = str(uuid.uuid4())
+        
+        # Iniciar proceso FFmpeg
+        start_ffmpeg_process(stream_url, stream_id, stream_headers)
+        
+        # Devolver ID del stream y URL de la playlist
+        playlist_url = f"/stream/playlist/{stream_id}/playlist.m3u8"
+        return {
+            'stream_id': stream_id,
+            'playlist_url': playlist_url,
+            'player_url': f"/?stream={quote(playlist_url)}"
+        }
+    except Exception as e:
+        logger.error(f"Error al crear stream: {str(e)}")
+        return str(e), 500
+
+@app.route('/stream/playlist/<stream_id>/<path:filename>')
+def serve_playlist(stream_id, filename):
+    """Sirve la playlist o segmentos HLS"""
+    if stream_id not in active_streams:
+        return "Stream no encontrado", 404
+    
+    # Actualizar timestamp de último acceso
+    active_streams[stream_id]['last_access'] = time.time()
+    
+    # Directorio del stream
+    stream_dir = active_streams[stream_id]['stream_dir']
+    
+    # Devolver archivo solicitado
+    return send_from_directory(stream_dir, filename)
+
 
 
 @app.route('/stream')
@@ -757,4 +1029,4 @@ if __name__ == '__main__':
     updater_thread.daemon = True
     updater_thread.start()
     
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', threaded=True)
