@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/playwright/python:v1.51.0-noble
 
 VOLUME [ "/share" ]
 
-RUN apt-get update && apt-get -y install jq bash
+RUN apt-get update && apt-get -y install jq bash ffmpeg
 
 # Etiquetas para Home Assistant
 LABEL io.hass.version="1.0.0" io.hass.type="addon" io.hass.arch="armhf|armv7|aarch64|amd64"
