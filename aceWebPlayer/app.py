@@ -368,7 +368,7 @@ def create_stream(stream_url):
         stream_id = str(uuid.uuid4())
         
         # Iniciar proceso FFmpeg
-        start_ffmpeg_process(stream_url_final, stream_id, stream_headers)
+        start_ffmpeg_process(stream_url_final, stream_id, headers_str)
         
         # Devolver ID del stream y URL de la playlist
         playlist_url = f"/stream/playlist/{stream_id}/playlist.m3u8"
