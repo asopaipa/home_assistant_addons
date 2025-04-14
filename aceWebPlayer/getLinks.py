@@ -55,6 +55,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                 soup = BeautifulSoup(html, 'html.parser')
                 form = soup.find("form", action="/add/")
                 if form:
+                    print("Detectado nonce de zeronet")
                     inputs = form.find_all("input", type="hidden")
                     data = {}
                     for input_tag in inputs:
@@ -75,10 +76,12 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                     
                     # Enviar el formulario
                     response_post = session.post(action_url, data=data, timeout=500)
+                    print("Respuesta del nonce: "+response_post)
                     
                     response_head = requests.head(url, allow_redirects=True, timeout=500)
                     content_type = response_head.headers.get("Content-Type", "").lower()
                     response = requests.get(url, timeout=500)
+                    print("Respuesta del nuevo intento de la llamada a zeronet: "+response)
                     
 
 
