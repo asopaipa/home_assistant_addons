@@ -89,8 +89,8 @@ def scan():
       <body>
         <h1>Reproductor HTML5</h1>
         <!-- Ajusta el type según el formato que entregue FFmpeg -->
-        <video controls autoplay width="640">
-          <source src="/stream" type="video/mp2t">
+        <video controls="true" autoplay="true" width="640">
+          <source src="http://fkoteam.duckdns.org:5000/stream" type="video/mp2t">
           Tu navegador no soporta el elemento video.
         </video>
       </body>
