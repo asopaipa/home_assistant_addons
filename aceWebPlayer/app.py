@@ -103,9 +103,8 @@ def scan():
 def stream():
     url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
     result = asyncio.run(scan_streams(url))
-    print (result)
     # Se utiliza el primer stream de la lista
-    stream_data = result[0]
+    stream_data = result["streams"][0]
     
     if not stream_data:
         return "No se ha interceptado ningún stream aún.", 404
