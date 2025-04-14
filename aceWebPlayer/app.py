@@ -404,7 +404,18 @@ def stream():
 
     url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
     result = asyncio.run(scan_streams(url))
-    print(jsonify(result))
+
+    #otro reintento
+    if !found_streams:
+        result = asyncio.run(scan_streams(url))
+
+    #si no, error. TODO. Mejora, poner un video de stream inoperativo
+    if !found_streams:
+        print("Error en streaming")
+        return
+
+    
+    
     # Se utiliza el primer stream de la lista
     stream_data = result[0]
     stream_url = stream_data["url"]
