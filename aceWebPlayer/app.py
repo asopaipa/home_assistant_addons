@@ -155,7 +155,7 @@ def scan2():
 
 
 
-async def scan_streams3(target_url):
+async def scan_streams(target_url):
     found_streams = []
 
     async with async_playwright() as p:
