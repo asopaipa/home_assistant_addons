@@ -78,41 +78,129 @@ def load_from_file(file_input):
 
 @app.route('/scan')
 def scan():
-    # Una plantilla HTML mínima con un reproductor HTML5 apuntando al endpoint /stream
-    html = """
-    <!doctype html>
+    return """
     <html>
     <head>
-      <meta charset="utf-8">
-      <title>Reproductor HLS</title>
-      <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+        <title>Proxy de Streaming HLS</title>
     </head>
     <body>
-      <h2>Reproductor</h2>
-      <video id="video" controls autoplay width="640"></video>
-
-      <script>
-        const video = document.getElementById('video');
-        const streamUrl = '/stream';
-
-        if (Hls.isSupported()) {
-          const hls = new Hls();
-          hls.loadSource(streamUrl);
-          hls.attachMedia(video);
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = streamUrl;
-        } else {
-          alert("Tu navegador no soporta HLS");
-        }
-      </script>
+        <h1>Proxy de Streaming HLS</h1>
+        <p>Uso: /stream/URL_DEL_STREAM</p>
+        <p>Ejemplo: /stream/http://example.com/stream.m3u8</p>
+        
+        <div id="player">
+            <!-- Aquí se mostrará el reproductor -->
+        </div>
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.14/hls.min.js"></script>
+        <script>
+            // Ejemplo de uso con un reproductor HLS.js
+            const createPlayer = (streamUrl) => {
+                // Crear elemento de video
+                const video = document.createElement('video');
+                video.controls = true;
+                video.width = 640;
+                video.height = 360;
+                document.getElementById('player').appendChild(video);
+                
+                // Inicializar HLS.js
+                if(Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(streamUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.play();
+                    });
+                }
+                else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = streamUrl;
+                    video.addEventListener('loadedmetadata', function() {
+                        video.play();
+                    });
+                }
+            };
+            
+            // Para probar, descomenta esta línea y reemplaza con una URL válida
+            createPlayer('http://fkoteam.duckdns.org:5000/stream');
+        </script>
     </body>
     </html>
     """
-    return render_template_string(html)
 
 
 @app.route('/stream')
 def stream():
+
+    url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
+    result = asyncio.run(scan_streams(url))
+    print(jsonify(result))
+    # Se utiliza el primer stream de la lista
+    stream_data = result[0]
+    stream_url = stream_data["url"]
+    stream_headers = stream_data["headers"]
+
+    # Construir el string de headers para FFmpeg.
+    # FFmpeg espera los headers en formato "Clave: Valor\r\n"
+    headers_str = "".join(f"{key}: {value}\r\n" for key, value in stream_headers.items())
+    
+    def generate():
+        # Configuración de FFmpeg para reenviar el stream sin transcodificar
+        # -c copy mantiene los códecs originales sin recodificar
+        cmd = [
+            'ffmpeg',
+            '-i', stream_url,       # URL de entrada
+            '-headers', headers_str,       # headers
+            '-c', 'copy',           # Copiar sin transcodificar
+            '-f', 'hls',            # Formato de salida HLS
+            '-hls_time', '2',       # Duración de cada segmento en segundos
+            '-hls_list_size', '3',  # Número de segmentos en la playlist
+            '-hls_flags', 'delete_segments+append_list',  # Eliminar segmentos antiguos
+            '-method', 'PUT',       # Método HTTP para segmentos
+            '-http_persistent', '1', # Mantener conexiones HTTP
+            '-master_pl_name', 'master.m3u8',
+            '-y',                   # Sobrescribir archivos
+            'pipe:1'                # Enviar a stdout
+        ]
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=10**8
+            )
+            
+            # Enviar datos al cliente
+            for chunk in iter(lambda: process.stdout.read(4096), b''):
+                yield chunk
+                
+            # Manejo de errores
+            if process.poll() is not None:
+                error = process.stderr.read().decode('utf-8')
+                logger.error(f"Error en FFmpeg: {error}")
+                
+        except Exception as e:
+            logger.error(f"Error en streaming: {str(e)}")
+            yield b''
+        finally:
+            # Asegurar que el proceso termine
+            if 'process' in locals():
+                process.kill()
+    
+    # Devolver respuesta en streaming
+    return Response(
+        stream_with_context(generate()),
+        mimetype='application/vnd.apple.mpegurl'
+    )
+
+
+
+
+
+
+
+
+def stream22():
     url = "https://www.pelotalibretv.me/en-vivo/liga-de-campeones-1.php"
     result = asyncio.run(scan_streams(url))
     print(jsonify(result))
