@@ -86,9 +86,7 @@ def scan():
 
 async def scan_streams(target_url):
     found_streams = []
-    found_stream = None
-    # Evento para indicar que ya se encontró el stream
-    stream_found_event = asyncio.Event()
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
@@ -96,59 +94,30 @@ async def scan_streams(target_url):
 
         # Captura de requests
         async def handle_request(req):
-            nonlocal found_stream
             url = req.url  
             if any(x in url for x in ["m3u8", "mp4"]):
-                found_streams.append({
+                found_streams = [{
                     "url": url,
-                    "headers": dict(req.headers)
-                })
-                stream_found_event.set()
+                    "headers": dict(res.headers)
+                }]
 
         page.on("request", handle_request)
 
         # Captura de responses
         async def handle_response(res):
-            nonlocal found_stream
             url = res.url
             if any(x in url for x in ["m3u8", "mp4"]):
-                found_streams.append({
+                found_streams = [{
                     "url": url,
                     "headers": dict(res.headers)
-                })
-                stream_found_event.set()
-
-
-        # Programar la ejecución de los handlers
-        # Se usa create_task para que se ejecute en paralelo sin bloquear
-        page.on("request", lambda req: asyncio.create_task(handle_request(req)))
-        page.on("response", lambda res: asyncio.create_task(handle_response(res)))
-
-        # Navega al target
-        await page.goto(target_url)
-
-        # Se espera hasta que se encuentre el primer stream o hasta agotar el timeout
-        try:
-            await asyncio.wait_for(stream_found_event.wait(), timeout=500)
-        except asyncio.TimeoutError:
-            # Si se agota el timeout, continúa sin haber encontrado ningún stream.
-            pass
-
-        # Opcional: esperar un poco más para dejar de capturar mas eventos (o cerrar el navegador ya)
-        await page.wait_for_timeout(500)  
-        await browser.close()
-
-    # Devuelve solo el primer stream encontrado (o None)
-    return {"stream": found_stream}
-
-
+                }]
         
 
-        #page.on("response", handle_response)
+        page.on("response", handle_response)
 
-        #await page.goto(target_url)
-        #await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
-        #await browser.close()
+        await page.goto(target_url)
+        await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
+        await browser.close()
 
     return {"streams": found_streams}
 
