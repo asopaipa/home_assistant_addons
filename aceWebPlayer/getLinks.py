@@ -50,13 +50,11 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                 content_type = response_head.headers.get("Content-Type", "").lower()
                 # Descargar el contenido y procesarlo como archivo M3U
                 response = requests.get(url, timeout=500)
-                print("Respuesta de la primera llamada: "+response.text)
                 html = response.text
                 # Analizamos el HTML en busca de una página de seguridad del zeronet
                 soup = BeautifulSoup(html, 'html.parser')
                 form = soup.find("form", action="/add/")
                 if form:
-                    print("Detectado nonce de zeronet")
                     inputs = form.find_all("input", type="hidden")
                     data = {}
                     for input_tag in inputs:
@@ -77,13 +75,10 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                     
                     # Enviar el formulario
                     response_post = session.post(action_url, data=data, timeout=500)
-                    print("Respuesta del nonce: "+response_post.text)
                     
                     response_head = requests.head(url, allow_redirects=True, timeout=500)
                     content_type = response_head.headers.get("Content-Type", "").lower()
-                    response = requests.get(url, timeout=500)
-                    print("Respuesta del nuevo intento de la llamada a zeronet: "+response.text)
-                    
+                    response = requests.get(url, timeout=500)                    
 
 
 
