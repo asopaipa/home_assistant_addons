@@ -354,10 +354,9 @@ def create_stream(stream_url):
 
 
         result = asyncio.run(scan_streams(stream_url))
-        print(jsonify(result))
         # Se utiliza el primer stream de la lista
         stream_data = result[0]
-        stream_url = stream_data["url"]
+        stream_url_final = stream_data["url"]
         stream_headers = stream_data["headers"]
     
         # Construir el string de headers para FFmpeg.
@@ -368,7 +367,7 @@ def create_stream(stream_url):
         stream_id = str(uuid.uuid4())
         
         # Iniciar proceso FFmpeg
-        start_ffmpeg_process(stream_url, stream_id, stream_headers)
+        start_ffmpeg_process(stream_url_final, stream_id, stream_headers)
         
         # Devolver ID del stream y URL de la playlist
         playlist_url = f"/stream/playlist/{stream_id}/playlist.m3u8"
