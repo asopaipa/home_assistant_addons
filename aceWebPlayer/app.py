@@ -406,11 +406,11 @@ def stream():
     result = asyncio.run(scan_streams(url))
 
     #otro reintento
-    if !found_streams:
+    if not found_streams:
         result = asyncio.run(scan_streams(url))
 
     #si no, error. TODO. Mejora, poner un video de stream inoperativo
-    if !found_streams:
+    if not found_streams:
         print("Error en streaming")
         return
 
