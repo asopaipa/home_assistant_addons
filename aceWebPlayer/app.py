@@ -20,6 +20,7 @@ import asyncio
 from playwright.async_api import async_playwright
 import subprocess
 import uuid
+from urllib.parse import quote
 
 app = Flask(__name__)
 
