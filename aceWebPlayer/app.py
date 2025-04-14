@@ -81,19 +81,31 @@ def scan():
     # Una plantilla HTML mínima con un reproductor HTML5 apuntando al endpoint /stream
     html = """
     <!doctype html>
-    <html lang="es">
-      <head>
-        <meta charset="utf-8">
-        <title>Reproductor de Stream</title>
-      </head>
-      <body>
-        <h1>Reproductor HTML5</h1>
-        <!-- Ajusta el type según el formato que entregue FFmpeg -->
-        <video controls="true" autoplay="true" width="640">
-          <source src="http://fkoteam.duckdns.org:5000/stream" type="video/mp2t">
-          Tu navegador no soporta el elemento video.
-        </video>
-      </body>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Reproductor HLS</title>
+      <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    </head>
+    <body>
+      <h2>Reproductor</h2>
+      <video id="video" controls autoplay width="640"></video>
+
+      <script>
+        const video = document.getElementById('video');
+        const streamUrl = '/stream';
+
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(streamUrl);
+          hls.attachMedia(video);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = streamUrl;
+        } else {
+          alert("Tu navegador no soporta HLS");
+        }
+      </script>
+    </body>
     </html>
     """
     return render_template_string(html)
