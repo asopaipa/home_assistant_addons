@@ -81,7 +81,7 @@ def scan():
     # Obtener URL del stream si se proporciona
     stream_url = request.args.get('stream', '')
     
-    return f"""
+    return """
     <html>
     <head>
         <title>Proxy de Streaming HLS</title>
