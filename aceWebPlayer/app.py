@@ -351,10 +351,7 @@ def create_stream(stream_url):
     
     """Inicia un nuevo stream y devuelve su ID"""
     try:
-        # Validar URL
-        parsed_url = urlparse()
-        if not all([parsed_url.scheme, parsed_url.netloc]):
-            return "URL inválida", 400
+
 
         result = asyncio.run(scan_streams(stream_url))
         print(jsonify(result))
