@@ -4,6 +4,7 @@ import re
 import random
 import requests
 import csv
+from bs4 import BeautifulSoup
 
 
 def decode_default_url():
@@ -45,13 +46,48 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
         for url in urls:
             try:
                 # Realizar una solicitud HEAD para comprobar el tipo de contenido
-                response_head = requests.head(url, allow_redirects=True, timeout=100)
+                response_head = requests.head(url, allow_redirects=True, timeout=500)
                 content_type = response_head.headers.get("Content-Type", "").lower()
+                # Descargar el contenido y procesarlo como archivo M3U
+                response = requests.get(url, timeout=500)
+                html = response.text
+                # Analizamos el HTML en busca de una página de seguridad del zeronet
+                soup = BeautifulSoup(html, 'html.parser')
+                form = soup.find("form", action="/add/")
+                if form:
+                    inputs = form.find_all("input", type="hidden")
+                    data = {}
+                    for input_tag in inputs:
+                        name = input_tag.get("name")
+                        value = input_tag.get("value")
+                        if name and value:
+                            data[name] = value
+                    
+                    # También puedes incluir el valor del botón submit si es necesario
+                    submit_input = form.find("input", type="submit")
+                    if submit_input and submit_input.get("name"):
+                        data[submit_input.get("name")] = submit_input.get("value")
+                    # Crear una sesión para mantener las cookies
+                    session = requests.Session()
+                    
+                    # URL a la que se envía el formulario
+                    action_url = urljoin(url, form.get("action"))
+                    
+                    # Enviar el formulario
+                    response_post = session.post(action_url, data=data, timeout=500)
+                    
+                    response_head = requests.head(url, allow_redirects=True, timeout=500)
+                    content_type = response_head.headers.get("Content-Type", "").lower()
+                    response = requests.get(url, timeout=500)
+                    
+
+
+
+                
                 
                 # Si el tipo de contenido indica un M3U
                 if "mpegurl" in content_type or "m3u" in content_type:
-                    # Descargar el contenido y procesarlo como archivo M3U
-                    response = requests.get(url, timeout=100)
+                    
                     if response.status_code == 200:
                         m3u_content = response.text
                         canal_actual = None
@@ -70,8 +106,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                                     escribir_m3u(f, f1, line, diccionario, miHost, canal_actual,tipo)
                         
                 else:
-                    # Procesar como una web normal (tu lógica original)
-                    response = requests.get(url, timeout=100)
+                   
                     if response.status_code == 200:
                         content = response.text
                         matches = re.findall(r'{"name": "(.*?)", "url": "acestream://([a-f0-9]{40})"}', content)
