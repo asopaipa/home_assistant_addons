@@ -50,6 +50,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
                 content_type = response_head.headers.get("Content-Type", "").lower()
                 # Descargar el contenido y procesarlo como archivo M3U
                 response = requests.get(url, timeout=500)
+                print("Respuesta de la primera llamada: "+response.text)
                 html = response.text
                 # Analizamos el HTML en busca de una página de seguridad del zeronet
                 soup = BeautifulSoup(html, 'html.parser')
