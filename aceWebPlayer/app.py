@@ -129,7 +129,7 @@ async def scan_streams(target_url):
 
         # Se espera hasta que se encuentre el primer stream o hasta agotar el timeout
         try:
-            await asyncio.wait_for(stream_found_event.wait(), timeout=5)
+            await asyncio.wait_for(stream_found_event.wait(), timeout=500)
         except asyncio.TimeoutError:
             # Si se agota el timeout, continúa sin haber encontrado ningún stream.
             pass
@@ -615,4 +615,4 @@ if __name__ == '__main__':
     updater_thread.daemon = True
     updater_thread.start()
     
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0')
