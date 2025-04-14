@@ -18,7 +18,6 @@ from werkzeug.utils import safe_join
 from operator import itemgetter
 import asyncio
 from playwright.async_api import async_playwright
-from zeroframe_ws_client import ZeroFrame
 
 
 app = Flask(__name__)
@@ -75,55 +74,6 @@ def load_from_file(file_input):
 
 
 
-# Suponiendo que la clase original es algo como esto:
-# class ZeroFrameWsClient:
-#     def __init__(self, site):
-#         self.ws_url = "ws://127.0.0.1:43110/Websocket"
-#         # otros inicializadores...
-
-class CustomZeroFrameClient(ZeroFrame):
-    def __init__(self, site, custom_ws_url=None):
-        # Primero guardamos el site y la URL personalizada
-        self.site = site
-        # Sobrescribimos la URL después de la inicialización si se proporcionó una
-        if custom_ws_url:
-            self.ws_url = custom_ws_url
-        
-        # Creamos una copia de la clase original
-        super().__init__(site)
-        
-        
-            
-class M3UDownloader(CustomZeroFrameClient):
-    def __init__(self, site):
-        super().__init__(site, config_zeronet_ws_url)
-        self.site = site
-        
-
-    async def on_open(self):
-        print("Conectado a ZeroNet WebSocket.")
-
-        file_path = "data/listas/lista_fuera_iptv.m3u"
-
-        try:
-            response = await self.cmd("fileGet", {
-                "inner_path": f"{self.site}/{file_path}"
-            })
-
-            if "result" in response:
-                print("Contenido del archivo:")
-                print(response["result"])
-            else:
-                print("No se pudo obtener el archivo:", response)
-        except Exception as e:
-            print("Error al obtener el archivo:", e)
-
-
-@app.route('/zero')
-def zeron():
-    site = "1JKe3VPvFe35bm1aiHdD4p1xcGCkZKhH3Q"
-    downloader = M3UDownloader(site)
-    downloader.run_forever()
 
 
 @app.route('/scan')
@@ -173,28 +123,6 @@ async def scan_streams(target_url):
 
 
 
-@app.route('/scanzero')
-def scan_zero():
-    url = "http://172.30.33.8:43110/1JKe3VPvFe35bm1aiHdD4p1xcGCkZKhH3Q/data/listas/lista_fuera_iptv.m3u"
-    result = asyncio.run(scan_streams_zero(url))
-    return result
-
-
-
-async def scan_streams_zero(target_url):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
-        
-        # Navegar a la URL
-        response = await page.goto(target_url)
-        
-        # Obtener el contenido de la página
-        content = await response.text()
-        
-        await browser.close()
-        return content
 
 
 
