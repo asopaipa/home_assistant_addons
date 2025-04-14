@@ -19,7 +19,7 @@ from operator import itemgetter
 import asyncio
 from playwright.async_api import async_playwright
 import subprocess
-from urllib.parse import urlparse, urljoin
+import uuid
 
 app = Flask(__name__)
 
