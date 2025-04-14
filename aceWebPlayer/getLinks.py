@@ -1,5 +1,5 @@
 from cryptoLink import decrypt
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 import re
 import random
 import requests
