@@ -126,45 +126,45 @@ def scan():
             
             // Crear stream desde la URL de origen
             function createStream() {
-                const sourceUrl = document.getElementById('sourceUrl').value.trim();
+                const sourceUrl = document.getElementById("sourceUrl").value.trim();
                 if (!sourceUrl) {
-                    showError('Por favor ingresa una URL de origen válida');
+                    showError("Por favor ingresa una URL de origen válida");
                     return;
                 }
                 
                 // Ocultar errores anteriores
-                document.getElementById('error').style.display = 'none';
+                document.getElementById("error").style.display = "none";
                 
                 // Mostrar mensaje de carga
-                document.getElementById('result').style.display = 'block';
-                document.getElementById('playlistUrl').innerHTML = 'Creando stream...';
+                document.getElementById("result").style.display = "block";
+                document.getElementById("playlistUrl").innerHTML = "Creando stream...";
                 
                 // Llamar al endpoint para crear el stream
-                fetch('/stream/start/' + encodeURIComponent(sourceUrl))
+                fetch("/stream/start/" + encodeURIComponent(sourceUrl))
                     .then(response => {
                         if (!response.ok) {
-                            throw new Error('Error al crear el stream');
+                            throw new Error("Error al crear el stream");
                         }
                         return response.json();
                     })
                     .then(data => {
-                        document.getElementById('playlistUrl').innerHTML = data.playlist_url;
-                        document.getElementById('playlistUrl').href = data.playlist_url;
+                        document.getElementById("playlistUrl").innerHTML = data.playlist_url;
+                        document.getElementById("playlistUrl").href = data.playlist_url;
                         window.currentStreamUrl = data.playlist_url;
                     })
                     .catch(error => {
-                        showError('Error: ' + error.message);
+                        showError("Error: " + error.message);
                     });
             }
             
             // Reproducir el stream actual
             function playStream() {
                 if (!window.currentStreamUrl) {
-                    showError('No hay un stream disponible para reproducir');
+                    showError("No hay un stream disponible para reproducir");
                     return;
                 }
                 
-                const playerDiv = document.getElementById('player');
+                const playerDiv = document.getElementById("player");
                 
                 // Limpiar reproductor existente
                 if (hlsPlayer) {
@@ -175,10 +175,10 @@ def scan():
                 }
                 
                 // Crear nuevo elemento de video
-                videoElement = document.createElement('video');
+                videoElement = document.createElement("video");
                 videoElement.controls = true;
                 videoElement.autoplay = true;
-                videoElement.style.width = '100%';
+                videoElement.style.width = "100%";
                 playerDiv.appendChild(videoElement);
                 
                 // Inicializar HLS.js
@@ -198,52 +198,52 @@ def scan():
                     
                     hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function() {
                         videoElement.play()
-                            .catch(e => showError('Error al reproducir: ' + e.message));
+                            .catch(e => showError("Error al reproducir: " + e.message));
                     });
                     
                     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
                         if (data.fatal) {
-                            console.error('Error fatal HLS:', data);
+                            console.error("Error fatal HLS:", data);
                             switch(data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
                                     // Reintentar en caso de error de red
-                                    console.log('Error de red, reintentando...');
+                                    console.log("Error de red, reintentando...");
                                     hlsPlayer.startLoad();
                                     break;
                                 case Hls.ErrorTypes.MEDIA_ERROR:
-                                    console.log('Error del media, recuperando...');
+                                    console.log("Error del media, recuperando...");
                                     hlsPlayer.recoverMediaError();
                                     break;
                                 default:
                                     // Otros errores fatales
-                                    showError('Error en la reproducción. Intenta nuevamente.');
+                                    showError("Error en la reproducción. Intenta nuevamente.");
                                     hlsPlayer.destroy();
                                     break;
                             }
                         }
                     });
                 }
-                else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
                     // Soporte nativo para HLS (Safari)
                     videoElement.src = window.currentStreamUrl;
-                    videoElement.addEventListener('loadedmetadata', function() {
+                    videoElement.addEventListener("loadedmetadata", function() {
                         videoElement.play()
-                            .catch(e => showError('Error al reproducir: ' + e.message));
+                            .catch(e => showError("Error al reproducir: " + e.message));
                     });
                 } else {
-                    showError('Tu navegador no soporta la reproducción de video HLS.');
+                    showError("Tu navegador no soporta la reproducción de video HLS.");
                 }
             }
             
             function showError(message) {
-                const errorDiv = document.getElementById('error');
+                const errorDiv = document.getElementById("error");
                 errorDiv.innerHTML = message;
-                errorDiv.style.display = 'block';
+                errorDiv.style.display = "block";
             }
             
             // Si hay un stream en la URL, iniciarlo automáticamente
             const urlParams = new URLSearchParams(window.location.search);
-            const streamParam = urlParams.get('stream');
+            const streamParam = urlParams.get("stream");
             if (streamParam) {
                 window.currentStreamUrl = streamParam;
                 setTimeout(playStream, 500);
