@@ -34,7 +34,7 @@ FOLDER_RESOURCES=""
 # Ruta del archivo donde se guardarán los datos persistidos
 DATA_FILE = ""
 
-def save_to_file(textarea1, textarea2, checkbox, file_input):
+def save_to_file(textarea1, textarea2, textarea3, checkbox, file_input):
     """
     Guarda los datos de los dos textareas y el estado del checkbox en un archivo JSON.
     
@@ -46,6 +46,7 @@ def save_to_file(textarea1, textarea2, checkbox, file_input):
     data = {
         "textarea1": textarea1 if textarea1 is not None else "",
         "textarea2": textarea2 if textarea2 is not None else "",
+        "textarea3": textarea3 if textarea3 is not None else "",
         "checkbox": checkbox
     }
     
@@ -65,8 +66,9 @@ def load_from_file(file_input):
                 data = json.load(file)
                 textarea1 = data.get("textarea1", "")
                 textarea2 = data.get("textarea2", "")
+                textarea3 = data.get("textarea3", "")
                 checkbox = data.get("checkbox", False)
-                return textarea1, textarea2, checkbox
+                return textarea1, textarea2, textarea3, checkbox
             except json.JSONDecodeError:
                 # En caso de error al leer el JSON, devolver valores por defecto
                 return "", "", False
@@ -744,17 +746,21 @@ def index():
     
     if request.method == 'POST':
         if request.form.get('default_list') == 'true':
-            direccion_bytes, direccion_pelis_bytes = decode_default_url()
+            direccion_bytes, direccion_pelis_bytes, direccion_webs_bytes = decode_default_url()
             direccion = direccion_bytes.decode("utf-8")
             direccion_pelis = direccion_pelis_bytes.decode("utf-8")
-            save_to_file(direccion, direccion_pelis, False, DATA_FILE)       
+            direccion_webs = direccion_webs_bytes.decode("utf-8")
+            save_to_file(direccion, direccion_pelis, direccion_webs, False, DATA_FILE)       
             # Procesar cada línea como una URL
             urls = [direccion]
             urls_pelis = [direccion_pelis]
+            urls_webs = [direccion_webs]
             generar_m3u_from_url(request.host, urls, "directos",FOLDER_RESOURCES)
             generar_m3u_from_url(request.host, urls_pelis, "pelis",FOLDER_RESOURCES)
+            generar_m3u_from_url(request.host, urls_pelis, "webs",FOLDER_RESOURCES)
             textarea_content = direccion
             textarea_content_pelis = direccion_pelis
+            textarea_content_webs = direccion_webs
             export_strm = False
         elif request.form.get('submit_url') == 'true':
             # Obtener los datos enviados desde el formulario
@@ -824,7 +830,7 @@ def index():
         groups = {channel.group for channel in channels}
         groups = sorted(list(groups))
     
-    return render_template('index.html', channels=channels, groups=groups, textarea_content=textarea_content, export_strm=export_strm, textarea_content_pelis=textarea_content_pelis)
+    return render_template('index.html', channels=channels, groups=groups, textarea_content=textarea_content, export_strm=export_strm, textarea_content_pelis=textarea_content_pelis, textarea_content_webs=textarea_content_webs)
 
 def procesar_directos(m3u_directos, directorio_salida):
     """
