@@ -132,33 +132,20 @@ class RojadirectaScraper(BaseScraper):
         
         return events
 
-class PirloTVScraper(BaseScraper):
+class DaddyLiveScraper(BaseScraper):
     """Scraper específico para PirloTV"""
     
     def scrape(self) -> List[Dict[str, Any]]:
-        """Extraer eventos deportivos de PirloTV"""
-        # Implementación específica para PirloTV (ejemplo)
+        """Extraer eventos deportivos de DaddyLive"""
+        # Implementación específica para DaddyLive (ejemplo)
         if not self.soup:
             return []
         
-        # Aquí iría la lógica específica para PirloTV
+        # Aquí iría la lógica específica para DaddyLive
         events = []
         # ... código de extracción
         return events
 
-class SoccerStreamsScraper(BaseScraper):
-    """Scraper específico para SoccerStreams"""
-    
-    def scrape(self) -> List[Dict[str, Any]]:
-        """Extraer eventos deportivos de SoccerStreams"""
-        # Implementación específica para SoccerStreams (ejemplo)
-        if not self.soup:
-            return []
-        
-        # Aquí iría la lógica específica para SoccerStreams
-        events = []
-        # ... código de extracción
-        return events
 
 class ScraperManager:
     """Gestor para múltiples scrapers"""
