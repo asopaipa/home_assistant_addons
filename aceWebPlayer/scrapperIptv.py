@@ -279,32 +279,4 @@ class ScraperManager:
         else:
             logger.warning("No hay datos para exportar a CSV")
 
-# Ejemplo de uso
-def example_usage():
-    # Crear instancia del gestor de scrapers
-    manager = ScraperManager()
-    
-    # Registrar scrapers para diferentes sitios
-    manager.register_scraper("rojadirecta", RojadirectaScraper)
-    manager.register_scraper("pirlotv", PirloTVScraper)
-    manager.register_scraper("soccerstreams", SoccerStreamsScraper)
-    
-    # Lista de URLs para hacer scraping
-    urls = [
-        "https://www.rojadirectaenvivo.pl/programacion.php",
-        "https://www.pirlotv.pl/programacion.php",
-        # Añadir más URLs según sea necesario
-    ]
-    
-    # Hacer scraping de todas las URLs
-    results = manager.scrape_multiple_urls(urls)
-    
-    # Exportar resultados
-    manager.export_to_json("all_events.json")
-    manager.export_to_csv("all_events.csv")
-    
-    # También podemos procesar un archivo HTML local
-    # manager.scrape_file("rojadirecta.html", RojadirectaScraper)
 
-if __name__ == "__main__":
-    example_usage()
