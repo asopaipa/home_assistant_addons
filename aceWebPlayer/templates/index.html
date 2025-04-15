@@ -91,8 +91,17 @@
                             </div>
                      
                         </div>
+                        Web's IPTV (sin exportación):
+                         <div class="mb-3">
+                       
+                            <div class="input-group">
+                                
+                                <textarea type="text" id="urlInputWebs" name="urlInputWebs" class="form-control" placeholder="Escribe las URL's de tus webs favoritas">{{ textarea_content_webs }}</textarea>
+                            </div>
+                     
+                        </div>
                         <input class="btn btn-primary" type="checkbox" name="export_strm" value="1" {{ 'checked' if export_strm else '' }} >Exportar strm's
-                        <button class="btn btn-primary" type="submit" name="submit_url" value="true">Cargar</button>
+                        <br/><button class="btn btn-primary" type="submit" name="submit_url" value="true">Cargar</button>
                     </form>
                     <br>
                     <button type="button" id="descargar_m3u_ace" value="true" class="btn btn-secondary w-100 mb-3" style="display: none;">Descargar M3U Directos Acestream</button>
