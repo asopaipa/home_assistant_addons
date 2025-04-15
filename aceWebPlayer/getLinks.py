@@ -1,4 +1,5 @@
 from cryptoLink import decrypt
+from scrapperIptv import ScraperManager
 from urllib.parse import urlparse, urljoin
 import re
 import random
@@ -48,8 +49,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, protocolo="http"):
         output_file = f"{folder}/acestream_pelis.m3u"
         output_file_remote = f"{folder}/web_pelis.m3u"
     if tipo == "webs":
-        output_file = f"{folder}/acestream_iptv.m3u"
-        output_file_remote = f"{folder}/web_iptv.m3u"
+        scrapIptv(urls, folder)
     
     # Cargar el diccionario desde el CSV
     diccionario = {}
@@ -182,3 +182,20 @@ def escribir_m3u(f, f1, url, diccionario, miHost, canal, tipo, protocolo="http")
 
 
 
+
+def scrapIptv(urls, folder):
+    # Crear instancia del gestor de scrapers
+    manager = ScraperManager()
+    
+    # Registrar scrapers para diferentes sitios
+    manager.register_scraper("rojadirecta", RojadirectaScraper)
+    manager.register_scraper("daddylive", DaddyLiveScraper)
+    
+    
+    # Hacer scraping de todas las URLs
+    results = manager.scrape_multiple_urls(urls)
+    
+    # Exportar resultados
+    manager.export_to_json("all_events.json")
+    manager.export_to_csv("all_events.csv")
+    
