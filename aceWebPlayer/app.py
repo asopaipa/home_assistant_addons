@@ -66,7 +66,7 @@ def load_from_file(file_input):
     :param file_input: Ruta del archivo desde donde se cargarán los datos.
     :return: Una tupla con el contenido de textarea1, textarea2, textarea3, el estado del checkbox, el servidor Acestream y el protocolo.
     """
-    """
+
     if os.path.exists(file_input):
         with open(file_input, "r") as file:
             try:
