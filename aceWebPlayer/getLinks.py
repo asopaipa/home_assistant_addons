@@ -11,6 +11,8 @@ def normalizar(texto):
 
     # Eliminar todo lo que esté después de " >"
     texto = texto.split(" >")[0]
+    # Eliminar todo lo que esté después de " -->"
+    texto = texto.split(" -->")[0]
 
     # Eliminar palabras como "SD", "HD", "FHD", "4K" (independientemente de mayúsculas/minúsculas)
     texto = re.sub(r'\b(SD|HD|FHD|4K)\b', '', texto, flags=re.IGNORECASE)
