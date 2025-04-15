@@ -34,7 +34,8 @@ FOLDER_RESOURCES=""
 # Ruta del archivo donde se guardarán los datos persistidos
 DATA_FILE = ""
 
-def save_to_file(textarea1, textarea2, textarea3, checkbox, file_input):
+def save_to_file(textarea1, textarea2, textarea3, checkbox, acestream_server, acestream_protocol, file_input):
+
     """
     Guarda los datos de los tres textareas, el estado del checkbox, el servidor Acestream y el protocolo en un archivo JSON.
     
