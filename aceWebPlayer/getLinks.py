@@ -45,6 +45,9 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, protocolo="http"):
     if tipo == "pelis":
         output_file = f"{folder}/acestream_pelis.m3u"
         output_file_remote = f"{folder}/web_pelis.m3u"
+    if tipo == "webs":
+        output_file = f"{folder}/acestream_iptv.m3u"
+        output_file_remote = f"{folder}/web_iptv.m3u"
     
     # Cargar el diccionario desde el CSV
     diccionario = {}
@@ -155,6 +158,8 @@ def escribir_m3u(f, f1, url, diccionario, miHost, canal, tipo, protocolo="http")
             grupo = "OTROS"
         if tipo == "pelis":
             grupo = "PELIS"
+        if tipo == "webs":
+            grupo = "IPTV"
 
     # Si no hay nombre del canal, usar la URL como nombre
     canal = canal or url
