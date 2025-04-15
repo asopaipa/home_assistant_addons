@@ -6,7 +6,21 @@ import requests
 import csv
 from bs4 import BeautifulSoup
 
+def normalizar(texto):
+    # Eliminar espacios al principio y al final
+    texto = texto.strip()
 
+    # Eliminar todo lo que esté después de ">"
+    texto = texto.split('>')[0]
+
+    # Eliminar palabras como "SD", "HD", "FHD", "4K" (independientemente de mayúsculas/minúsculas)
+    texto = re.sub(r'\b(SD|HD|FHD|4K)\b', '', texto, flags=re.IGNORECASE)
+
+    # Eliminar espacios duplicados que puedan quedar
+    texto = re.sub(r'\s+', ' ', texto)
+
+    return texto.strip().lower()
+    
 def decode_default_url():
     
     # URL de la que quieres obtener los datos
@@ -40,7 +54,8 @@ def generar_m3u_from_url(miHost, urls, tipo, folder):
         reader = csv.reader(f)
         for row in reader:
             canal, canal_epg, imagen, grupo = row
-            diccionario[canal] = {"canal_epg": canal_epg, "imagen": imagen, "grupo": grupo}
+            canal_normalizado = normalizar(canal)
+            diccionario[canal_normalizado] = {"canal_epg": canal_epg, "imagen": imagen, "grupo": grupo}
 
     # Lista para almacenar enlaces únicos
     enlaces_unicos = set()
@@ -128,10 +143,12 @@ def escribir_m3u(f, f1, url, diccionario, miHost, canal,tipo):
     """
     numero_aleatorio = random.randint(1, 10000)
 
-    if canal in diccionario:
-        canal_epg = diccionario[canal]["canal_epg"]
-        imagen = diccionario[canal]["imagen"]
-        grupo = diccionario[canal]["grupo"]
+    canal_normalizado = normalizar(canal)
+
+    if canal_normalizado in diccionario:
+        canal_epg = diccionario[canal_normalizado]["canal_epg"]
+        imagen = diccionario[canal_normalizado]["imagen"]
+        grupo = diccionario[canal_normalizado]["grupo"]
     else:
         canal = canal.replace("/", " ").replace("\\", " ").replace("-", " ")
         canal_epg = ""
