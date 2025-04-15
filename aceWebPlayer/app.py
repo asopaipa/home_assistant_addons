@@ -700,6 +700,7 @@ def index():
             # Obtener los datos enviados desde el formulario
             textarea_content = request.form.get('urlInput', '').strip()      
             textarea_content_pelis = request.form.get('urlInputPelis', '').strip()   
+            textarea_content_webs = request.form.get('urlInputWebs', '').strip()  
             export_strm = False
             export_strm = 'export_strm' in request.form
             acestream_server = request.form.get('aceStreamServer', '')
