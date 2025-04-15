@@ -7,17 +7,15 @@ import csv
 from bs4 import BeautifulSoup
 
 def normalizar(texto):
-    # Eliminar espacios al principio y al final
-    texto = texto.strip()
+    
 
-    # Eliminar todo lo que esté después de ">"
-    texto = texto.split('>')[0]
+    # Eliminar todo lo que esté después de " >"
+    texto = texto.split(" >")[0]
 
     # Eliminar palabras como "SD", "HD", "FHD", "4K" (independientemente de mayúsculas/minúsculas)
     texto = re.sub(r'\b(SD|HD|FHD|4K)\b', '', texto, flags=re.IGNORECASE)
 
-    # Eliminar espacios duplicados que puedan quedar
-    texto = re.sub(r'\s+', ' ', texto)
+
 
     return texto.strip().lower()
     
