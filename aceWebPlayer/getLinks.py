@@ -57,6 +57,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, protocolo="http"):
             canal, canal_epg, imagen, grupo = row
             canal_normalizado = normalizar(canal)
             diccionario[canal_normalizado] = {"canal_epg": canal_epg, "imagen": imagen, "grupo": grupo}
+            print("-"+canal_normalizado+"-")
 
     # Lista para almacenar enlaces únicos
     enlaces_unicos = set()
@@ -145,6 +146,7 @@ def escribir_m3u(f, f1, url, diccionario, miHost, canal, tipo, protocolo="http")
     numero_aleatorio = random.randint(1, 10000)
 
     canal_normalizado = normalizar(canal)
+    print("+"+canal_normalizado+"+")
 
     if canal_normalizado in diccionario:
         canal_epg = diccionario[canal_normalizado]["canal_epg"]
