@@ -15,8 +15,6 @@ ports:
 options:
   UI_USERNAME: "user"
   UI_PASSWORD: "user"
-  ACESTREAM_PORT: "6878"
 schema:
   UI_USERNAME: "str"
   UI_PASSWORD: "str"
-  ACESTREAM_PORT: "str"
