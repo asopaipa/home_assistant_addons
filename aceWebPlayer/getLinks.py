@@ -50,6 +50,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, protocolo="http"):
         output_file_remote = f"{folder}/web_pelis.m3u"
     if tipo == "webs":
         scrapIptv(urls, folder)
+        return
     
     # Cargar el diccionario desde el CSV
     diccionario = {}
