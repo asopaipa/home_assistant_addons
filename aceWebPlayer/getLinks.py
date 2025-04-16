@@ -189,7 +189,7 @@ def scrapIptv(urls, folder):
     
     # Registrar scrapers para diferentes sitios
     manager.register_scraper("rojadirecta", RojadirectaScraper)
-    manager.register_scraper("daddylive", DaddyLiveScraper)
+    #manager.register_scraper("daddylive", DaddyLiveScraper)
     
     
     # Hacer scraping de todas las URLs
