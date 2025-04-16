@@ -24,6 +24,47 @@ class BaseScraper(ABC):
         self.url = url
         self.html_content = None
         self.soup = None
+
+
+    
+    async def scan_streams(target_url):
+        found_streams = []
+    
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
+            page = await context.new_page()
+    
+            # Captura de requests
+            async def handle_request(req):
+                url = req.url  
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(req.headers)
+                    })
+    
+            page.on("request", handle_request)
+    
+            # Captura de responses
+            async def handle_response(res):
+                url = res.url
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(res.headers)
+                    })
+    
+            
+    
+            page.on("response", handle_response)
+    
+            await page.goto(target_url)
+            await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
+            await browser.close()
+    
+        return found_streams
+
     
     def load_from_url(self) -> bool:
         """Cargar HTML desde URL"""
@@ -223,7 +264,56 @@ class ScraperManager:
         logger.info(f"Resultados exportados a {filepath}")
 
 
+    def export_to_m3u(self, filepath: str = "directos_web.m3u8"):
+
         
+        
+        """Exportar resultados a M3U8"""
+        all_rows = []
+        
+        for url, events in self.results.items():
+            for event in events:
+                # Extraer el dominio de la URL
+                domain = urlparse(url).netloc
+                
+                # Para cada canal, crear una fila
+                if 'channels' in event:
+                    for channel in event.get('channels', []):
+                        row = {
+                            'source': domain,
+                            'url': url
+                        }
+                        # Añadir todos los campos del evento
+                        for key, value in event.items():
+                            if key != 'channels':  # No incluir la lista de canales
+                                row[key] = value
+                        
+                        # Añadir información del canal
+                        row['channel_name'] = channel.get('name', '')
+                        row['channel_url'] = channel.get('url', '')
+                        
+                        all_rows.append(row)
+                else:
+                    # Si no hay canales, crear una sola fila para el evento
+                    row = {
+                        'source': domain,
+                        'url': url
+                    }
+                    # Añadir todos los campos del evento
+                    for key, value in event.items():
+                        row[key] = value
+                    
+                    all_rows.append(row)
+        
+        if all_rows:
+            
+            with open(filepath, "w") as f:
+                f.write("#EXTM3U\n")
+                for row in all_rows:
+                    f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row[source]}",{row[event]} {row[channel_name]}\n')
+                    f.write(f'{row[channel_url]}\n')
+        else:
+            logger.warning("No hay datos para exportar")        
     
     def export_to_csv(self, filepath: str = "scraping_results.csv"):
         """Exportar resultados a CSV"""
