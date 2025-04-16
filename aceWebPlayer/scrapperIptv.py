@@ -97,7 +97,7 @@ class RojadirectaScraper(BaseScraper):
                 continue
                 
             event_title = event_link.get_text().strip()
-            event_title = event_title.replace('<a href="#">', '')
+            
             # Eliminar la hora del título
             time_match = re.search(r'(.+?)(?:<span class="t">(\d+:\d+)</span>)', str(event_link))
             
@@ -110,6 +110,8 @@ class RojadirectaScraper(BaseScraper):
                 event_time = time_span.text if time_span else "No especificado"
                 # Limpiar el título si la hora está incluida
                 event_title = event_title.replace(event_time, '').strip()
+                
+            event_title = event_title.replace('<a href="#">', '')
             
             # Extraer los canales disponibles
             channels = []
