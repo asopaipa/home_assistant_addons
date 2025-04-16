@@ -735,7 +735,6 @@ def index():
     if os.path.exists(f"{FOLDER_RESOURCES}/web_iptv.m3u") and os.stat(f"{FOLDER_RESOURCES}/web_iptv.m3u").st_size > 5:
         with open(f"{FOLDER_RESOURCES}/web_iptv.m3u", 'r', encoding='utf-8') as file:
             content = file.read()
-            print(content)
             channels2 = parse_m3u(content)
             channels.extend(channels2)
     
