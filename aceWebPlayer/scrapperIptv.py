@@ -92,6 +92,7 @@ class RojadirectaScraper(BaseScraper):
                 continue
                 
             event_title = event_link.get_text().strip()
+            event_title = event_title.replace('<a href=""#"">', '')
             # Eliminar la hora del título
             time_match = re.search(r'(.+?)(?:<span class="t">(\d+:\d+)</span>)', str(event_link))
             
