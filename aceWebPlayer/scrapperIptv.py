@@ -133,7 +133,7 @@ class RojadirectaScraper(BaseScraper):
         return events
 
 class DaddyLiveScraper(BaseScraper):
-    """Scraper específico para PirloTV"""
+    """Scraper específico para DaddyLive"""
     
     def scrape(self) -> List[Dict[str, Any]]:
         """Extraer eventos deportivos de DaddyLive"""
@@ -220,6 +220,9 @@ class ScraperManager:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(self.results, f, ensure_ascii=False, indent=4)
         logger.info(f"Resultados exportados a {filepath}")
+
+
+        
     
     def export_to_csv(self, filepath: str = "scraping_results.csv"):
         """Exportar resultados a CSV"""
