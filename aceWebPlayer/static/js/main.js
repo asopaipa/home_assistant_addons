@@ -8,7 +8,7 @@ function loadChannel(contentId) {
     const aceStreamServer = localStorage.getItem('aceStreamServer') || `${window.location.hostname}:6878`;
     // Determinar el protocolo a usar
     const aceStreamProtocol = localStorage.getItem('aceStreamProtocol') || 'http';
-    const videoSrc = "";
+    videoSrc = "";
     if(contentId.length==20)
         videoSrc = `${aceStreamProtocol}://${aceStreamServer}/ace/manifest.m3u8?id=${contentId}&pid=`+PidId;
     else
