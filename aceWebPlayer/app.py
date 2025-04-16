@@ -874,6 +874,7 @@ def getIconClassForFilename(fName):
 @app.route('/output_strm/', defaults={'reqPath': ''})
 @app.route('/output_strm/<path:reqPath>')
 def getFiles(reqPath):
+    print("Entrando a output_strm");
     # Join the base and the requested path
     # could have done os.path.join, but safe_join ensures that files are not fetched from parent folders of the base folder
     absPath = safe_join(FolderPath, reqPath)
@@ -881,7 +882,7 @@ def getFiles(reqPath):
     # Return 404 if path doesn't exist
     if not os.path.exists(absPath):
         print(f"No existe {absPath}");
-        return abort(403)
+        return abort(404)
 
     # Check if path is a file and serve
     if os.path.isfile(absPath):
