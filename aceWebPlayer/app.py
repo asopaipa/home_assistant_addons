@@ -874,8 +874,49 @@ def getIconClassForFilename(fName):
 @app.route('/output_strm/', defaults={'reqPath': ''})
 @app.route('/output_strm/<path:reqPath>')
 def getFiles(reqPath):
-    print("Entrando a output_strm");
-    return "Accediendo a: " + reqPath
+    # Join the base and the requested path
+    # could have done os.path.join, but safe_join ensures that files are not fetched from parent folders of the base folder
+    absPath = safe_join(FolderPath, reqPath)
+
+    # Return 404 if path doesn't exist
+    if not os.path.exists(absPath):
+        return "No existe: " + absPath
+
+    # Check if path is a file and serve
+    if os.path.isfile(absPath):
+        return send_file(absPath)
+
+    # Show directory contents
+    def fObjFromScan(x):
+        fileStat = x.stat()
+        # return file information for rendering
+        if os.path.isdir(x.path):
+            nombre = x.name + "/"
+        else:
+            nombre = x.name
+        return {'name': nombre[:50],
+                'espacios_nombre': "".ljust(51 - len(nombre[:50])),
+                'fIcon': "bi bi-folder-fill" if os.path.isdir(x.path) else getIconClassForFilename(x.name),
+                'relPath': nombre.replace("\\", "/"),
+                'mTime': getTimeStampString(fileStat.st_mtime),
+                'espacios_fecha': "       " if os.path.isdir(x.path) else "".ljust(7 - len(getReadableByteSize(fileStat.st_size)[:6])),
+                'size': "-" if os.path.isdir(x.path) else getReadableByteSize(fileStat.st_size)[:6]}
+
+    try:
+        #fileObjs = [fObjFromScan(x) for x in os.scandir(absPath)]
+        fileObjs = sorted(
+            [fObjFromScan(x) for x in os.scandir(absPath)],
+            key=itemgetter('name')
+        )
+        # get parent directory url
+        parentFolderPath = os.path.relpath(
+            Path(absPath).parents[0], FolderPath).replace("\\", "/")
+        return render_template('files.html.j2', data={'files': fileObjs,
+                                                     'parentFolder': parentFolderPath})
+    except Exception as e:
+        return "Error: " + str(e)
+                  
+    
 
     
 if __name__ == '__main__':
