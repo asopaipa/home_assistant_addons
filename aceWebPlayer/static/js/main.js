@@ -20,7 +20,7 @@ function loadChannel(contentId) {
     {
 
         // Llamar al endpoint para crear el stream
-        fetch("/stream/start/" + encodeURIComponent(sourceUrl))
+        fetch("/stream/start/" + encodeURIComponent(contentId))
             .then(response => {
                 if (!response.ok) {
                     throw new Error("Error al crear el stream");
