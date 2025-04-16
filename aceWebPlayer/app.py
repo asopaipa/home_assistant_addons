@@ -731,6 +731,12 @@ def index():
             content = file.read()
             channels2 = parse_m3u(content)
             channels.extend(channels2)
+
+    if os.path.exists(f"{FOLDER_RESOURCES}/web_iptv.m3u") and os.stat(f"{FOLDER_RESOURCES}/web_iptv.m3u").st_size > 10:
+        with open(f"{FOLDER_RESOURCES}/web_iptv.m3u", 'r', encoding='utf-8') as file:
+            content = file.read()
+            channels2 = parse_m3u(content)
+            channels.extend(channels2)
     
     if channels:  # Verifica si 'channels' no está vacío
         groups = {channel.group for channel in channels}
