@@ -73,22 +73,26 @@ async def scan_streams(target_url):
         # Captura de requests
         async def handle_request(req):
             url = req.url  
+            print(url)
             if any(x in url for x in ["m3u8", "mp4"]):
                 found_streams.append({
                     "url": url,
                     "headers": dict(req.headers)
                 })
+                print("siiii")
 
         page.on("request", handle_request)
 
         # Captura de responses
         async def handle_response(res):
             url = res.url
+            print(url)
             if any(x in url for x in ["m3u8", "mp4"]):
                 found_streams.append({
                     "url": url,
                     "headers": dict(res.headers)
                 })
+                print("siiii2")
 
         
 
@@ -408,6 +412,9 @@ def create_stream(stream_url):
 
 
         result = asyncio.run(scan_streams(stream_url))
+        if not result:
+            print("Canal no disponible")
+            return
         # Se utiliza el primer stream de la lista
         stream_data = result[0]
         stream_url_final = stream_data["url"]
