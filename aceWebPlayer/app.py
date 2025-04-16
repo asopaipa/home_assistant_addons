@@ -60,6 +60,46 @@ def save_to_file(textarea1, textarea2, textarea3, checkbox, acestream_server, ac
     with open(file_input, "w") as file:
         json.dump(data, file)
 
+
+
+    async def scan_streams(target_url):
+        found_streams = []
+    
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
+            page = await context.new_page()
+    
+            # Captura de requests
+            async def handle_request(req):
+                url = req.url  
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(req.headers)
+                    })
+    
+            page.on("request", handle_request)
+    
+            # Captura de responses
+            async def handle_response(res):
+                url = res.url
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(res.headers)
+                    })
+    
+            
+    
+            page.on("response", handle_response)
+    
+            await page.goto(target_url)
+            await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
+            await browser.close()
+    
+        return found_streams
+
 def load_from_file(file_input):
     """
     Carga los datos de los tres textareas, el estado del checkbox, el servidor Acestream y el protocolo desde un archivo JSON.
