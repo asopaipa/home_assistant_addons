@@ -584,7 +584,7 @@ def parse_m3u(content):
                 group=group_match.group(1) if group_match else "Sin categoría",
                 tvg_id=tvg_id_match.group(1) if tvg_id_match else None
             )
-        elif line.startswith('acestream://') and current_channel:
+        elif current_channel:
             current_channel.id = line.replace('acestream://', '').strip()
             channels.append(current_channel)
             current_channel = None
