@@ -120,6 +120,12 @@
     border-color: #c6c6c6;
 }
 
+.dark-mode .selec {
+    background-color: #1f1f1f;
+    color: #c6c6c6;
+    border-color: #c6c6c6;
+}
+
 .dark-mode .form-control {
     background-color: #1f1f1f;
     color: #c6c6c6;
