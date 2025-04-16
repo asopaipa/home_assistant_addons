@@ -305,22 +305,22 @@ class ScraperManager:
                     
                     all_rows.append(row)
 
-        filtered_rows = []
-        if all_rows:   
-            for row in all_rows:
-                found_streams = asyncio.run(self.scan_streams(row.get("channel_url", "")))
-                if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
-                    row["url_stream"] = found_streams[0]["url"]
-                    row["headers"] = found_streams[0]["headers"]
-                    filtered_rows.append(row)
+        #filtered_rows = []
+        #if all_rows:   
+        #    for row in all_rows:
+        #        found_streams = asyncio.run(self.scan_streams(row.get("channel_url", "")))
+        #        if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
+        #            row["url_stream"] = found_streams[0]["url"]
+        #            row["headers"] = found_streams[0]["headers"]
+        #            filtered_rows.append(row)
 
             
-        if filtered_rows:
+        if all_rows:
             with open(filepath, "w") as f:
                 f.write("#EXTM3U\n")
-                for row in filtered_rows:
+                for row in all_rows:
                     f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row.get("source", "")}",{row.get("title", "")} {row.get("channel_name", "")}\n')
-                    f.write(f'{row.get("url_stream", "")}|{row.get("headers", "")}\n')
+                    f.write(f'{row.get("channel_url", "")}\n')
         else:
             logger.warning("No hay datos para exportar")        
     
