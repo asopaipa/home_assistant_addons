@@ -156,7 +156,7 @@ class DaddyLiveScraper(BaseScraper):
 class ScraperManager:
     """Gestor para múltiples scrapers"""
 
-    async def scan_streams(target_url):
+    async def scan_streams(self, target_url):
         found_streams = []
     
         async with async_playwright() as p:
