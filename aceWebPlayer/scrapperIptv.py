@@ -310,8 +310,8 @@ class ScraperManager:
             with open(filepath, "w") as f:
                 f.write("#EXTM3U\n")
                 for row in all_rows:
-                    f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row[source]}",{row[event]} {row[channel_name]}\n')
-                    f.write(f'{row[channel_url]}\n')
+                    f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row.get("source", "")}",{row.get("event", "")} {row.get("channel_name", "")}\n')
+                    f.write(f'{row.get("channel_url", "")}\n')
         else:
             logger.warning("No hay datos para exportar")        
     
