@@ -8,7 +8,11 @@ function loadChannel(contentId) {
     const aceStreamServer = localStorage.getItem('aceStreamServer') || `${window.location.hostname}:6878`;
     // Determinar el protocolo a usar
     const aceStreamProtocol = localStorage.getItem('aceStreamProtocol') || 'http';
-    const videoSrc = `${aceStreamProtocol}://${aceStreamServer}/ace/manifest.m3u8?id=${contentId}&pid=`+PidId;
+    const videoSrc = "";
+    if(contentId.length==20)
+        videoSrc = `${aceStreamProtocol}://${aceStreamServer}/ace/manifest.m3u8?id=${contentId}&pid=`+PidId;
+    else
+        videoSrc = "/stream/start/" + encodeURIComponent(contentId);
 
     // Mostrar mensaje de carga
     initialMessage.style.display = 'none';
