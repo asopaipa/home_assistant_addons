@@ -29,44 +29,6 @@ class BaseScraper(ABC):
 
 
     
-    async def scan_streams(target_url):
-        found_streams = []
-    
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context()
-            page = await context.new_page()
-    
-            # Captura de requests
-            async def handle_request(req):
-                url = req.url  
-                if any(x in url for x in ["m3u8", "mp4"]):
-                    found_streams.append({
-                        "url": url,
-                        "headers": dict(req.headers)
-                    })
-    
-            page.on("request", handle_request)
-    
-            # Captura de responses
-            async def handle_response(res):
-                url = res.url
-                if any(x in url for x in ["m3u8", "mp4"]):
-                    found_streams.append({
-                        "url": url,
-                        "headers": dict(res.headers)
-                    })
-    
-            
-    
-            page.on("response", handle_response)
-    
-            await page.goto(target_url)
-            await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
-            await browser.close()
-    
-        return found_streams
-
     
     def load_from_url(self) -> bool:
         """Cargar HTML desde URL"""
@@ -193,6 +155,44 @@ class DaddyLiveScraper(BaseScraper):
 
 class ScraperManager:
     """Gestor para múltiples scrapers"""
+
+    async def scan_streams(target_url):
+        found_streams = []
+    
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
+            page = await context.new_page()
+    
+            # Captura de requests
+            async def handle_request(req):
+                url = req.url  
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(req.headers)
+                    })
+    
+            page.on("request", handle_request)
+    
+            # Captura de responses
+            async def handle_response(res):
+                url = res.url
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(res.headers)
+                    })
+    
+            
+    
+            page.on("response", handle_response)
+    
+            await page.goto(target_url)
+            await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
+            await browser.close()
+    
+        return found_streams
     
     def __init__(self):
         # Mapeo de patrones de URL a clases de scraper
@@ -267,8 +267,6 @@ class ScraperManager:
 
 
     def export_to_m3u(self, filepath: str = "directos_web.m3u8"):
-
-        
         
         """Exportar resultados a M3U8"""
         all_rows = []
@@ -310,7 +308,7 @@ class ScraperManager:
         filtered_rows = []
         if all_rows:   
             for row in all_rows:
-                found_streams = asyncio.run(self.scan_streams(row.get("channel_url", "")))
+                found_streams = asyncio.run(scan_streams(row.get("channel_url", "")))
                 if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
                     row["url_stream"] = found_streams[0]["url"]
                     row["headers"] = found_streams[0]["headers"]
