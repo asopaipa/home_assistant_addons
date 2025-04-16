@@ -840,7 +840,7 @@ def procesar_peliculas(m3u_peliculas, directorio_salida):
                     f.write(linea)
 
 
-FolderPath = f"{FOLDER_RESOURCES}/output_strm/"
+
 
 
 
@@ -874,6 +874,7 @@ def getIconClassForFilename(fName):
 @app.route('/output_strm/', defaults={'reqPath': ''})
 @app.route('/output_strm/<path:reqPath>')
 def getFiles(reqPath):
+    FolderPath = f"{FOLDER_RESOURCES}/output_strm/"
     # Join the base and the requested path
     # could have done os.path.join, but safe_join ensures that files are not fetched from parent folders of the base folder
     absPath = safe_join(FolderPath, reqPath)
