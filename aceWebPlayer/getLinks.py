@@ -1,5 +1,5 @@
 from cryptoLink import decrypt
-from scrapperIptv import ScraperManager, RojadirectaScraper
+from scrapperIptv import ScraperManager, RojadirectaScraper, DaddyLiveScraper
 from urllib.parse import urlparse, urljoin
 import re
 import random
