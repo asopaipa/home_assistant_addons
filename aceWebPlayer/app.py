@@ -875,46 +875,8 @@ def getIconClassForFilename(fName):
 @app.route('/output_strm/<path:reqPath>')
 def getFiles(reqPath):
     print("Entrando a output_strm");
-    # Join the base and the requested path
-    # could have done os.path.join, but safe_join ensures that files are not fetched from parent folders of the base folder
-    absPath = safe_join(FolderPath, reqPath)
+    return "Accediendo a: " + reqPath
 
-    # Return 404 if path doesn't exist
-    if not os.path.exists(absPath):
-        print(f"No existe {absPath}");
-        return abort(404)
-
-    # Check if path is a file and serve
-    if os.path.isfile(absPath):
-        return send_file(absPath)
-
-    # Show directory contents
-    def fObjFromScan(x):
-        fileStat = x.stat()
-        # return file information for rendering
-        if os.path.isdir(x.path):
-            nombre = x.name + "/"
-        else:
-            nombre = x.name
-        return {'name': nombre[:50],
-                'espacios_nombre': "".ljust(51 - len(nombre[:50])),
-                'fIcon': "bi bi-folder-fill" if os.path.isdir(x.path) else getIconClassForFilename(x.name),
-                'relPath': nombre.replace("\\", "/"),
-                'mTime': getTimeStampString(fileStat.st_mtime),
-                'espacios_fecha': "       " if os.path.isdir(x.path) else "".ljust(7 - len(getReadableByteSize(fileStat.st_size)[:6])),
-                'size': "-" if os.path.isdir(x.path) else getReadableByteSize(fileStat.st_size)[:6]}
-        
-    #fileObjs = [fObjFromScan(x) for x in os.scandir(absPath)]
-    fileObjs = sorted(
-        [fObjFromScan(x) for x in os.scandir(absPath)],
-        key=itemgetter('name')
-    )
-    # get parent directory url
-    parentFolderPath = os.path.relpath(
-        Path(absPath).parents[0], FolderPath).replace("\\", "/")
-    return render_template('files.html.j2', data={'files': fileObjs,
-                                                 'parentFolder': parentFolderPath})
-    
     
 if __name__ == '__main__':
     # Configuramos el parser de argumentos
