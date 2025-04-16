@@ -1,4 +1,9 @@
 var PidId=Math.floor(10000000 + Math.random() * 90000000).toString();
+
+
+
+
+
 function loadChannel(contentId) {
     const video = document.getElementById('video');
     const videoDiv = document.getElementById('video-div');
@@ -12,7 +17,25 @@ function loadChannel(contentId) {
     if(contentId.length==20)
         videoSrc = `${aceStreamProtocol}://${aceStreamServer}/ace/manifest.m3u8?id=${contentId}&pid=`+PidId;
     else
-        videoSrc = "/stream/start/" + encodeURIComponent(contentId);
+    {
+
+        // Llamar al endpoint para crear el stream
+        fetch("/stream/start/" + encodeURIComponent(sourceUrl))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Error al crear el stream");
+                }
+                return response.json();
+            })
+            .then(data => {
+
+                videoSrc =  data.playlist_url;
+            })
+            .catch(error => {
+                showError("Error: " + error.message);
+            });
+        
+    }
 
     // Mostrar mensaje de carga
     initialMessage.style.display = 'none';
