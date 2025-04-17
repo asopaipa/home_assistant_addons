@@ -79,7 +79,6 @@ async def scan_streams(target_url):
                     "url": url,
                     "headers": dict(req.headers)
                 })
-                print("siiii")
 
         page.on("request", handle_request)
 
@@ -92,7 +91,6 @@ async def scan_streams(target_url):
                     "url": url,
                     "headers": dict(res.headers)
                 })
-                print("siiii2")
 
         
 
