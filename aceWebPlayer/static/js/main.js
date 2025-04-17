@@ -43,6 +43,7 @@ function loadChannel(contentId) {
                 loadChannelPost(videoSrc);
             })
             .catch(error => {
+                console.log('Error: ', error.message);
                 streamStatus.innerHTML = "<span class='text-danger'>Error de conexión ("+error.message+"). Intenta con otro servidor o protocolo.</span>";
             });
         
