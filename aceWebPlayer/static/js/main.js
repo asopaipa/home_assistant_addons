@@ -39,7 +39,7 @@ function loadChannel(contentId) {
             })
             .then(data => {
 
-                loadChannelPost(videoSrc);
+                loadChannelPost(data.playlist_url);
             })
             .catch(error => {
                 console.log('Error: ', error.message);
