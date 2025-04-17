@@ -35,7 +35,7 @@ function loadChannel(contentId) {
                 if (!response.ok) {
                     throw new Error("Error al crear el stream");
                 }
-                
+                return response.json();
             })
             .then(data => {
 
