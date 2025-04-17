@@ -7,21 +7,21 @@ function loadChannel(contentId) {
         loadChannelPost(contentId);
     else
     {
-
+        const streamStatus = document.getElementById('stream-status');
         // Llamar al endpoint para crear el stream
         fetch("/stream/start/" + encodeURIComponent(contentId))
             .then(response => {
                 if (!response.ok) {
                     throw new Error("Error al crear el stream");
                 }
-                return response.json();
+                
             })
             .then(data => {
 
                 loadChannelPost(videoSrc);
             })
             .catch(error => {
-                showError("Error: " + error.message);
+                streamStatus.innerHTML = "<span class='text-danger'>Error de conexión ("+error.message+"). Intenta con otro servidor o protocolo.</span>";
             });
         
     }
