@@ -1,10 +1,35 @@
 var PidId=Math.floor(10000000 + Math.random() * 90000000).toString();
 
 
-
-
-
 function loadChannel(contentId) {
+
+    if(contentId.length==20)
+        loadChannelPost(contentId);
+    else
+    {
+
+        // Llamar al endpoint para crear el stream
+        fetch("/stream/start/" + encodeURIComponent(contentId))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Error al crear el stream");
+                }
+                return response.json();
+            })
+            .then(data => {
+
+                loadChannelPost(videoSrc);
+            })
+            .catch(error => {
+                showError("Error: " + error.message);
+            });
+        
+    }
+
+}
+
+
+function loadChannelPost(contentId) {
     const video = document.getElementById('video');
     const videoDiv = document.getElementById('video-div');
     const initialMessage = document.getElementById('initial-message');
@@ -19,21 +44,7 @@ function loadChannel(contentId) {
     else
     {
 
-        // Llamar al endpoint para crear el stream
-        fetch("/stream/start/" + encodeURIComponent(contentId))
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Error al crear el stream");
-                }
-                return response.json();
-            })
-            .then(data => {
-
-                videoSrc =  data.playlist_url;
-            })
-            .catch(error => {
-                showError("Error: " + error.message);
-            });
+        videoSrc=contentId;
         
     }
 
