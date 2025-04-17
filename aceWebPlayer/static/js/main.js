@@ -17,7 +17,7 @@ function loadChannel(contentId) {
         videoDiv.style.display = 'block';
         
         // Información de depuración
-        console.log('Intentando cargar stream desde:', /stream/start/" + encodeURIComponent(contentId));
+        console.log("Intentando cargar stream desde: /stream/start/" + encodeURIComponent(contentId));
     
         // Selección de los botones
         const infoEnlaces = document.getElementById('info_enlaces');
