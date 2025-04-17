@@ -7,6 +7,28 @@ function loadChannel(contentId) {
         loadChannelPost(contentId);
     else
     {
+        const video = document.getElementById('video');
+        const videoDiv = document.getElementById('video-div');
+        
+        const initialMessage = document.getElementById('initial-message');
+        // Mostrar mensaje de carga
+        initialMessage.style.display = 'none';
+        video.style.display = 'block';
+        videoDiv.style.display = 'block';
+        
+        // Información de depuración
+        console.log('Intentando cargar stream desde:', videoSrc);
+    
+        // Selección de los botones
+        const infoEnlaces = document.getElementById('info_enlaces');
+    
+        infoEnlaces.innerHTML = `
+            <div class="alert alert-info">
+                <p><strong>Enlace remoto:</strong> <a href="${videoSrc}" target="_blank">${videoSrc}</a></p>
+                <p><strong>Enlace Acestream:</strong> <a href="acestream://${contentId}" target="_blank">${contentId}</a></p>
+                <div id="stream-status">Conectando al stream...</div>
+            </div>`;
+        
         const streamStatus = document.getElementById('stream-status');
         // Llamar al endpoint para crear el stream
         fetch("/stream/start/" + encodeURIComponent(contentId))
@@ -40,7 +62,27 @@ function loadChannelPost(contentId) {
     const aceStreamProtocol = localStorage.getItem('aceStreamProtocol') || 'http';
     videoSrc = "";
     if(contentId.length==20)
+    {
         videoSrc = `${aceStreamProtocol}://${aceStreamServer}/ace/manifest.m3u8?id=${contentId}&pid=`+PidId;
+
+        // Mostrar mensaje de carga
+        initialMessage.style.display = 'none';
+        video.style.display = 'block';
+        videoDiv.style.display = 'block';
+        
+        // Información de depuración
+        console.log('Intentando cargar stream desde:', videoSrc);
+    
+        // Selección de los botones
+        const infoEnlaces = document.getElementById('info_enlaces');
+    
+        infoEnlaces.innerHTML = `
+            <div class="alert alert-info">
+                <p><strong>Enlace remoto:</strong> <a href="${videoSrc}" target="_blank">${videoSrc}</a></p>
+                <p><strong>Enlace Acestream:</strong> <a href="acestream://${contentId}" target="_blank">${contentId}</a></p>
+                <div id="stream-status">Conectando al stream...</div>
+            </div>`;
+    }
     else
     {
 
@@ -48,23 +90,7 @@ function loadChannelPost(contentId) {
         
     }
 
-    // Mostrar mensaje de carga
-    initialMessage.style.display = 'none';
-    video.style.display = 'block';
-    videoDiv.style.display = 'block';
-    
-    // Información de depuración
-    console.log('Intentando cargar stream desde:', videoSrc);
 
-    // Selección de los botones
-    const infoEnlaces = document.getElementById('info_enlaces');
-
-    infoEnlaces.innerHTML = `
-        <div class="alert alert-info">
-            <p><strong>Enlace remoto:</strong> <a href="${videoSrc}" target="_blank">${videoSrc}</a></p>
-            <p><strong>Enlace Acestream:</strong> <a href="acestream://${contentId}" target="_blank">${contentId}</a></p>
-            <div id="stream-status">Conectando al stream...</div>
-        </div>`;
     
     const streamStatus = document.getElementById('stream-status');
 
