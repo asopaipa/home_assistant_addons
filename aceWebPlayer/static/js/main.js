@@ -17,15 +17,14 @@ function loadChannel(contentId) {
         videoDiv.style.display = 'block';
         
         // Información de depuración
-        console.log('Intentando cargar stream desde:', videoSrc);
+        console.log('Intentando cargar stream desde:', /stream/start/" + encodeURIComponent(contentId));
     
         // Selección de los botones
         const infoEnlaces = document.getElementById('info_enlaces');
     
         infoEnlaces.innerHTML = `
             <div class="alert alert-info">
-                <p><strong>Enlace remoto:</strong> <a href="${videoSrc}" target="_blank">${videoSrc}</a></p>
-                <p><strong>Enlace Acestream:</strong> <a href="acestream://${contentId}" target="_blank">${contentId}</a></p>
+                <p><strong>Enlace remoto:</strong> <a href="/stream/start/${encodeURIComponent(contentId)}" target="_blank">/stream/start/${encodeURIComponent(contentId)}</a></p>
                 <div id="stream-status">Conectando al stream...</div>
             </div>`;
         
