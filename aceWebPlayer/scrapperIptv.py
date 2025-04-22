@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 import logging
 import asyncio
 from playwright.async_api import async_playwright
+from app import scan_streams
 
 # Configuración de logging
 logging.basicConfig(
@@ -272,7 +273,7 @@ class ScraperManager:
         filtered_rows = []
         if all_rows:   
             for row in all_rows:
-                found_streams = asyncio.run(self.scan_streams(row.get("channel_url", "")))
+                found_streams = asyncio.run(scan_streams(row.get("channel_url", "")))
                 if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
                     row["url_stream"] = found_streams[0]["url"]
                     row["headers"] = found_streams[0]["headers"]
