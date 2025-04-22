@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 import logging
 import asyncio
-from getLinks import scan_streams
+from playwright.async_api import async_playwright
 
 # Configuración de logging
 logging.basicConfig(
@@ -292,7 +292,69 @@ class ScraperManager:
                     f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row.get("source", "")}",{row.get("title", "")} {row.get("channel_name", "")}\n')
                     f.write(f'{row.get("channel_url", "")}\n')
         else:
-            logger.warning("No hay datos para exportar")        
+            logger.warning("No hay datos para exportar")     
+
+    from playwright.async_api import async_playwright
+
+
+    async def scan_streams(self, target_url):
+        found_streams = []
+        event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
+    
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
+            page = await context.new_page()
+    
+            # Captura de requests
+            async def handle_request(req):
+                nonlocal found_streams
+                if found_streams:  # Si ya encontramos uno, ignoramos
+                    return
+                url = req.url  
+                print(url)
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(req.headers)
+                    })
+                    event.set()  # Señalamos que encontramos una coincidencia
+    
+            page.on("request", handle_request)
+    
+            # Captura de responses
+            async def handle_response(res):
+                nonlocal found_streams
+                if found_streams:  # Si ya encontramos uno, ignoramos
+                    return
+                url = res.url
+                print(url)
+                if any(x in url for x in ["m3u8", "mp4"]):
+                    
+                    found_streams.append({
+                        "url": url,
+                        "headers": dict(res.headers)
+                    })
+                    event.set()  # Señalamos que encontramos una coincidencia
+    
+            
+    
+            page.on("response", handle_response)
+    
+            await page.goto(target_url)
+            # Esperar hasta que se encuentre una coincidencia o hasta el timeout
+            timeout_task = asyncio.create_task(asyncio.sleep(5000/1000))  # Convertimos ms a segundos
+            event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
+            
+            await asyncio.wait(
+                [event_wait_task, timeout_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            await browser.close()
+    
+        return found_streams
 
     
     def format_url_with_headers(self, url, headers):
