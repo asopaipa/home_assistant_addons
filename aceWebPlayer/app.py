@@ -19,7 +19,7 @@ from operator import itemgetter
 import asyncio
 import subprocess
 import uuid
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from playwright.async_api import async_playwright
 
 
