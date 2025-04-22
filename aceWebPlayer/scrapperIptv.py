@@ -155,7 +155,7 @@ class DaddyLiveScraper(BaseScraper):
         time_pattern = re.compile(r'\d{2}:\d{2}')
         
         # Buscar todos los elementos <strong>
-        strongs = soup.find_all('strong')
+        strongs = self.soup.find_all('strong')
         
         for strong in strongs:
             # Convertir el contenido del strong a texto
