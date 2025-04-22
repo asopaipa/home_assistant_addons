@@ -105,6 +105,13 @@ async def scan_streams(target_url):
             [event_wait_task, timeout_task],
             return_when=asyncio.FIRST_COMPLETED
         )
+
+
+        print("\nObteniendo el HTML final renderizado...")
+        final_html = await page.content()
+        print("--- HTML Final de la Página ---")
+        print(final_html)
+        print("--- Fin del HTML ---\n")
         
         await browser.close()
 
