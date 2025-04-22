@@ -308,18 +308,7 @@ def create_stream(stream_url):
 @app.route('/stream/playlist/<stream_id>/<path:filename>')
 async def serve_playlist(stream_id, filename):
 
-    # Comprobamos si ya existe
-    if stream_id not in active_streams:
-        print(f"Stream {stream_id} no encontrado inmediatamente")
-    
-        start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < 5 and stream_id not in active_streams:
-            # Añade logs para verificar que está esperando
-            print(f"Verificando stream {stream_id}...")
-            
-            await asyncio.sleep(0.1)  # Pequeña pausa entre verificaciones
-
-    
+  
     """Sirve la playlist o segmentos HLS"""
     if stream_id not in active_streams:
         return "Stream no encontrado", 404
@@ -330,6 +319,16 @@ async def serve_playlist(stream_id, filename):
     
     # Directorio del stream
     stream_dir = active_streams[stream_id]['stream_dir']
+
+    file_path = os.path.join(stream_dir, filename)
+
+
+    start_time = asyncio.get_event_loop().time()
+    while asyncio.get_event_loop().time() - start_time < 5 and not os.path.exists(file_path):
+        # Añade logs para verificar que está esperando        
+        await asyncio.sleep(0.1)  # Pequeña pausa entre verificaciones
+
+
     
     # Devolver archivo solicitado
     return send_from_directory(stream_dir, filename)
