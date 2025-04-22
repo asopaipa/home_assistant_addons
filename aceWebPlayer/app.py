@@ -19,7 +19,7 @@ from operator import itemgetter
 import asyncio
 import subprocess
 import uuid
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 from playwright.async_api import async_playwright
 
 
@@ -127,7 +127,7 @@ def format_url_with_headers(url, headers):
     header_parts = []
     for key, value in headers.items():
         # Codificamos el valor del header. safe='' asegura que caracteres como / también se codifiquen.
-        encoded_value = urllib.parse.quote(str(value), safe='')
+        encoded_value = quote(str(value), safe='')
         header_parts.append(f"{key}={encoded_value}")
 
     # Unir las partes con '&'
