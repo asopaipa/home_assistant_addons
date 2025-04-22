@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 import re
 import json
 import importlib
@@ -288,50 +287,3 @@ class ScraperManager:
                     f.write(f'{row.get("channel_url", "")}\n')
         else:
             logger.warning("No hay datos para exportar")        
-    
-    def export_to_csv(self, filepath: str = "scraping_results.csv"):
-        """Exportar resultados a CSV"""
-        all_rows = []
-        
-        for url, events in self.results.items():
-            for event in events:
-                # Extraer el dominio de la URL
-                domain = urlparse(url).netloc
-                
-                # Para cada canal, crear una fila
-                if 'channels' in event:
-                    for channel in event.get('channels', []):
-                        row = {
-                            'source': domain,
-                            'url': url
-                        }
-                        # Añadir todos los campos del evento
-                        for key, value in event.items():
-                            if key != 'channels':  # No incluir la lista de canales
-                                row[key] = value
-                        
-                        # Añadir información del canal
-                        row['channel_name'] = channel.get('name', '')
-                        row['channel_url'] = channel.get('url', '')
-                        
-                        all_rows.append(row)
-                else:
-                    # Si no hay canales, crear una sola fila para el evento
-                    row = {
-                        'source': domain,
-                        'url': url
-                    }
-                    # Añadir todos los campos del evento
-                    for key, value in event.items():
-                        row[key] = value
-                    
-                    all_rows.append(row)
-        
-        if all_rows:
-            df = pd.DataFrame(all_rows)
-            df.to_csv(filepath, index=False, encoding='utf-8')
-            logger.info(f"Resultados exportados a {filepath}")
-        else:
-            logger.warning("No hay datos para exportar a CSV")
-
-
