@@ -35,7 +35,7 @@ FOLDER_RESOURCES=""
 # Ruta del archivo donde se guardarán los datos persistidos
 DATA_FILE = ""
 
-async def scan_streams(self, target_url):
+async def scan_streams(target_url):
     found_streams = []
     event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
 
