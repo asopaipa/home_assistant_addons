@@ -580,7 +580,6 @@ def download_file(filename):
     except FileNotFoundError:
         return f"El archivo {filename} no existe.", 404
 
-def export
 
 @app.route('/', methods=['GET', 'POST'])
 @requires_auth
