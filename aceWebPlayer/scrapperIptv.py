@@ -9,8 +9,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 import logging
 import asyncio
-from playwright.async_api import async_playwright
-from app import scan_streams
+from getLinks import scan_streams
 
 # Configuración de logging
 logging.basicConfig(
