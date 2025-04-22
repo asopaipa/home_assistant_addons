@@ -9,7 +9,6 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 import logging
 import asyncio
-from playwright.async_api import async_playwright
 
 # Configuración de logging
 logging.basicConfig(
@@ -278,12 +277,12 @@ class ScraperManager:
                     row["headers"] = found_streams[0]["headers"]
                     filtered_rows.append(row)
 
-        if filtered_rows:
-            with open(filepathdown, "w") as f:
-                #f.write("#EXTM3U\n")
-                for row in all_rows:
-                    f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row.get("source", "")}",{row.get("title", "")} {row.get("channel_name", "")}\n')
-                    f.write(self.format_url_with_headers(row.get("url_stream", ""), row.get("headers", "")))
+        #if filtered_rows:
+        #    with open(filepathdown, "w") as f:
+        #        #f.write("#EXTM3U\n")
+        #        for row in all_rows:
+        #            f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row.get("source", "")}",{row.get("title", "")} {row.get("channel_name", "")}\n')
+        #            f.write(self.format_url_with_headers(row.get("url_stream", ""), row.get("headers")))
             
         if all_rows:
             with open(filepath, "w") as f:
@@ -294,94 +293,7 @@ class ScraperManager:
         else:
             logger.warning("No hay datos para exportar")     
 
-    from playwright.async_api import async_playwright
 
 
-    async def scan_streams(self, target_url):
-        found_streams = []
-        event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
-    
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context()
-            page = await context.new_page()
-    
-            # Captura de requests
-            async def handle_request(req):
-                nonlocal found_streams
-                if found_streams:  # Si ya encontramos uno, ignoramos
-                    return
-                url = req.url  
-                print(url)
-                if any(x in url for x in ["m3u8", "mp4"]):
-                    
-                    found_streams.append({
-                        "url": url,
-                        "headers": dict(req.headers)
-                    })
-                    event.set()  # Señalamos que encontramos una coincidencia
-    
-            page.on("request", handle_request)
-    
-            # Captura de responses
-            async def handle_response(res):
-                nonlocal found_streams
-                if found_streams:  # Si ya encontramos uno, ignoramos
-                    return
-                url = res.url
-                print(url)
-                if any(x in url for x in ["m3u8", "mp4"]):
-                    
-                    found_streams.append({
-                        "url": url,
-                        "headers": dict(res.headers)
-                    })
-                    event.set()  # Señalamos que encontramos una coincidencia
-    
-            
-    
-            page.on("response", handle_response)
-    
-            await page.goto(target_url)
-            # Esperar hasta que se encuentre una coincidencia o hasta el timeout
-            timeout_task = asyncio.create_task(asyncio.sleep(5000/1000))  # Convertimos ms a segundos
-            event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
-            
-            await asyncio.wait(
-                [event_wait_task, timeout_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            await browser.close()
-    
-        return found_streams
 
-    
-    def format_url_with_headers(self, url, headers):
-        """
-        Formatea una URL y un diccionario de headers en el formato:
-        url|Header1=Value1&Header2=Value2&...
-        Los valores de los headers son URL-encoded.
-    
-        Args:
-            url (str): La URL base.
-            headers (dict): Un diccionario con los headers.
-    
-        Returns:
-            str: La cadena formateada.
-        """
-        # Crear lista de strings "key=encoded_value"
-        header_parts = []
-        for key, value in headers.items():
-            # Codificamos el valor del header. safe='' asegura que caracteres como / también se codifiquen.
-            encoded_value = urllib.parse.quote(str(value), safe='')
-            header_parts.append(f"{key}={encoded_value}")
-    
-        # Unir las partes con '&'
-        header_string = "&".join(header_parts)
-    
-        # Devolver el formato final
-        if header_string: # Solo añadir el '|' si hay headers
-            return f"{url}|{header_string}\n"
-        else:
-            return f"{url}\n" # Si no hay headers, devolver solo la URL
+
