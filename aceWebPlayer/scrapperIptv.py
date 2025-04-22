@@ -229,7 +229,7 @@ class ScraperManager:
         logger.info(f"Resultados exportados a {filepath}")
 
 
-    def export_to_m3u(self, filepath: str = "directos_web.m3u8", filepathdown: str = "directos_web_down.m3u8"):
+    def export_to_m3u(self, filepath: str = "directos_web.m3u8"):
         
         """Exportar resultados a M3U8"""
         all_rows = []
@@ -292,6 +292,8 @@ class ScraperManager:
                     f.write(f'{row.get("channel_url", "")}\n')
         else:
             logger.warning("No hay datos para exportar")     
+
+
 
 
 
