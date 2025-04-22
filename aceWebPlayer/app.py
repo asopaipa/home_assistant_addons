@@ -45,7 +45,7 @@ def export_iptv(channels, filepath):
                 found_streams = asyncio.run(scan_streams(channel.id))
                 if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
                     f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{channel.group}", {channel.name} \n')
-                    f.write(self.format_url_with_headers(found_streams[0]["url"], found_streams[0]["headers"]))
+                    f.write(format_url_with_headers(found_streams[0]["url"], found_streams[0]["headers"]))
                 
 
     else:
@@ -110,7 +110,7 @@ async def scan_streams(target_url):
 
     return found_streams
 
-def format_url_with_headers(self, url, headers):
+def format_url_with_headers(url, headers):
     """
     Formatea una URL y un diccionario de headers en el formato:
     url|Header1=Value1&Header2=Value2&...
