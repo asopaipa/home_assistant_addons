@@ -66,9 +66,9 @@ async def scan_streams(target_url):
             if found_streams:  # Si ya encontramos uno, ignoramos
                 return
             url = req.url  
-            
+            print(url)
             if any(x in url for x in ["m3u8", "mp4"]):
-                print(url)
+                print("siiii")
                 found_streams.append({
                     "url": url,
                     "headers": dict(req.headers)
@@ -83,9 +83,9 @@ async def scan_streams(target_url):
             if found_streams:  # Si ya encontramos uno, ignoramos
                 return
             url = res.url
-            
+            print(url)
             if any(x in url for x in ["m3u8", "mp4"]):
-                print(url)
+                print("siiii2")
                 found_streams.append({
                     "url": url,
                     "headers": dict(res.headers)
