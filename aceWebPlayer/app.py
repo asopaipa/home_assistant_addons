@@ -35,6 +35,22 @@ FOLDER_RESOURCES=""
 # Ruta del archivo donde se guardarán los datos persistidos
 DATA_FILE = ""
 
+
+def export_iptv(channels, filepath):
+    
+    filtered_rows = []
+    if channels:
+        with open(filepath, "w") as f:
+            for channel in channels:
+                found_streams = asyncio.run(scan_streams(channel.id))
+                if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
+                    f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{channel.group}", {channel.name} \n')
+                    f.write(self.format_url_with_headers(found_streams[0]["url"], found_streams[0]["headers"]))
+                
+
+    else:
+        logger.warning("No hay datos para exportar")     
+        
 async def scan_streams(target_url):
     found_streams = []
     event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
@@ -547,17 +563,24 @@ def download_file(filename):
         # Descargar el archivo
     
         # Lista de nombres permitidos
-        archivos_permitidos = ["acestream_directos.m3u", "web_directos.m3u", "acestream_pelis.m3u", "web_pelis.m3u"]
+        archivos_permitidos = ["acestream_directos.m3u", "web_directos.m3u", "acestream_pelis.m3u", "web_pelis.m3u", "iptv_headers.m3u"]
     
         # Validar si el archivo es permitido
         if filename not in archivos_permitidos:
             abort(403, description="Archivo no autorizado para la descarga.")
+
+        if filename == "iptv_headers.m3u":  
+            if os.path.exists(f"{FOLDER_RESOURCES}/web_iptv.m3u") and os.stat(f"{FOLDER_RESOURCES}/web_iptv.m3u").st_size > 5:
+                with open(f"{FOLDER_RESOURCES}/web_iptv.m3u", 'r', encoding='utf-8') as file:
+                    content = file.read()
+                    channels2 = parse_m3u(content)
+                    export_iptv(channels2, f"{FOLDER_RESOURCES}/iptv_headers.m3u")
         
         return send_from_directory(FOLDER_RESOURCES, filename, as_attachment=True)
     except FileNotFoundError:
         return f"El archivo {filename} no existe.", 404
 
-
+def export
 
 @app.route('/', methods=['GET', 'POST'])
 @requires_auth
