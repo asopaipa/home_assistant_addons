@@ -149,7 +149,7 @@ class DaddyLiveScraper(BaseScraper):
             return []
         
         events = []
-        channels = []
+        
     
         # Patrón para identificar horas en formato HH:MM
         time_pattern = re.compile(r'\d{2}:\d{2}')
@@ -196,6 +196,7 @@ class DaddyLiveScraper(BaseScraper):
                 }
                 
                 events.append(event_info)
+                channels = []
                 
 
         
