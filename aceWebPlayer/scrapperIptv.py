@@ -141,15 +141,64 @@ class RojadirectaScraper(BaseScraper):
 class DaddyLiveScraper(BaseScraper):
     """Scraper específico para DaddyLive"""
     
+    
     def scrape(self) -> List[Dict[str, Any]]:
         """Extraer eventos deportivos de DaddyLive"""
-        # Implementación específica para DaddyLive (ejemplo)
         if not self.soup:
+            logger.error("No se ha cargado el HTML antes de intentar scraping")
             return []
         
-        # Aquí iría la lógica específica para DaddyLive
         events = []
-        # ... código de extracción
+        channels = []
+    
+        # Patrón para identificar horas en formato HH:MM
+        time_pattern = re.compile(r'\d{2}:\d{2}')
+        
+        # Buscar todos los elementos <strong>
+        strongs = soup.find_all('strong')
+        
+        for strong in strongs:
+            # Convertir el contenido del strong a texto
+            texto_completo = strong.get_text()
+            
+            # Verificar si contiene un horario en formato HH:MM
+            match = time_pattern.search(texto_completo)
+            
+            if match:
+                # Obtener la hora
+                hora = match.group(0)
+                
+                # Extraer título del evento (todo lo que está entre la hora y el primer enlace)
+                titulo_inicio = texto_completo.index(hora) + len(hora)
+                titulo_fin = len(texto_completo)
+                
+                # Buscar los enlaces dentro del strong
+                canales = []
+                
+                for link in strong.find_all('a'):
+                    canales.append(link.get_text())
+                    channels.append({
+                            'name': link.get_text(),
+                            'url': link.get('href')
+                        })
+                
+                # Si hay enlaces, ajustar donde termina el título
+                if canales:
+                    titulo_fin = texto_completo.index(canales[0]) - 1  # -1 para quitar el espacio antes del canal
+                
+                titulo = texto_completo[titulo_inicio:titulo_fin].strip()
+
+                event_info = {
+                    'country_league': "",
+                    'title': titulo,
+                    'time': hora,
+                    'channels': channels
+                }
+                
+                events.append(event_info)
+                
+
+        
         return events
 
 
