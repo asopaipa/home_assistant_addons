@@ -275,28 +275,6 @@ def create_stream(stream_url):
         return str(e), 500
 
 
-async def check_stream(stream_id):
-    if stream_id not in active_streams:
-        # Verificar periódicamente por 2 segundos
-        start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < 2:
-            # Verificar si el stream ya está disponible
-            if stream_id in active_streams:
-                return None  # Stream encontrado, continuar
-            # Esperar un poco antes de verificar de nuevo
-            await asyncio.sleep(0.1)
-            
-        # Si llegamos aquí, pasaron 2 segundos y no se encontró
-        return "Stream no encontrado", 404
-    
-    # Si el stream ya estaba disponible desde el principio
-    return None
-
-
-
-
-
-
 
     
 @app.route('/stream/playlist/<stream_id>/<path:filename>')
@@ -304,12 +282,12 @@ async def serve_playlist(stream_id, filename):
 
     # Comprobamos si ya existe
     if stream_id not in active_streams:
-        app.logger.info(f"Stream {stream_id} no encontrado inmediatamente")
+        print(f"Stream {stream_id} no encontrado inmediatamente")
     
         start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < 2 and stream_id not in active_streams:
+        while asyncio.get_event_loop().time() - start_time < 5 and stream_id not in active_streams:
             # Añade logs para verificar que está esperando
-            app.logger.debug(f"Verificando stream {stream_id}...")
+            print(f"Verificando stream {stream_id}...")
             
             await asyncio.sleep(0.1)  # Pequeña pausa entre verificaciones
 
