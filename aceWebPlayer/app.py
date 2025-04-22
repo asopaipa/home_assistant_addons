@@ -64,6 +64,7 @@ def save_to_file(textarea1, textarea2, textarea3, checkbox, acestream_server, ac
 
 async def scan_streams(target_url):
     found_streams = []
+    event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -72,32 +73,46 @@ async def scan_streams(target_url):
 
         # Captura de requests
         async def handle_request(req):
+            if found_streams:  # Si ya encontramos uno, ignoramos
+                return
             url = req.url  
             print(url)
             if any(x in url for x in ["m3u8", "mp4"]):
+                nonlocal found_streams
                 found_streams.append({
                     "url": url,
                     "headers": dict(req.headers)
                 })
+                event.set()  # Señalamos que encontramos una coincidencia
 
         page.on("request", handle_request)
 
         # Captura de responses
         async def handle_response(res):
+            if found_streams:  # Si ya encontramos uno, ignoramos
+                return
             url = res.url
             print(url)
             if any(x in url for x in ["m3u8", "mp4"]):
+                nonlocal found_streams
                 found_streams.append({
                     "url": url,
                     "headers": dict(res.headers)
                 })
+                event.set()  # Señalamos que encontramos una coincidencia
 
         
 
         page.on("response", handle_response)
 
         await page.goto(target_url)
-        await page.wait_for_timeout(5000)  # Espera extra para asegurar carga
+        # Esperar hasta que se encuentre una coincidencia o hasta el timeout
+        timeout_task = asyncio.create_task(asyncio.sleep(5000/1000))  # Convertimos ms a segundos
+        await asyncio.wait(
+            [event.wait(), timeout_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
         await browser.close()
 
     return found_streams
