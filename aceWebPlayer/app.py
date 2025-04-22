@@ -299,7 +299,7 @@ def create_stream(stream_url):
         result = asyncio.run(scan_streams(stream_url))
         if not result:
             print("Canal no disponible")
-            return str(e), 500
+            return "Canal no disponible", 500
         # Se utiliza el primer stream de la lista
         stream_data = result[0]
         stream_url_final = stream_data["url"]
