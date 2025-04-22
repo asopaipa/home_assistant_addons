@@ -291,13 +291,32 @@ async def check_stream(stream_id):
     
     # Si el stream ya estaba disponible desde el principio
     return None
+
+
+
+
+
+
+
     
 @app.route('/stream/playlist/<stream_id>/<path:filename>')
 async def serve_playlist(stream_id, filename):
+
+    # Comprobamos si ya existe
+    if stream_id not in active_streams:
+        app.logger.info(f"Stream {stream_id} no encontrado inmediatamente")
+    
+        start_time = asyncio.get_event_loop().time()
+        while asyncio.get_event_loop().time() - start_time < 2 and stream_id not in active_streams:
+            # Añade logs para verificar que está esperando
+            app.logger.debug(f"Verificando stream {stream_id}...")
+            
+            await asyncio.sleep(0.1)  # Pequeña pausa entre verificaciones
+
+    
     """Sirve la playlist o segmentos HLS"""
-    error = await check_stream(stream_id)
-    if error:
-        return error
+    if stream_id not in active_streams:
+        return "Stream no encontrado", 404
 
     
     # Actualizar timestamp de último acceso
@@ -806,4 +825,4 @@ if __name__ == '__main__':
     updater_thread.daemon = True
     updater_thread.start()
     
-    app.run(host='0.0.0.0', threaded=True)
+    app.run(host='0.0.0.0', threaded=True, use_reloader=False)
