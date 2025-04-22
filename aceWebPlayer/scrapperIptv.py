@@ -230,7 +230,7 @@ class ScraperManager:
         logger.info(f"Resultados exportados a {filepath}")
 
 
-    def export_to_m3u(self, filepath: str = "directos_web.m3u8"):
+    def export_to_m3u(self, filepath: str = "directos_web.m3u8", filepathdown: str = "directos_web_down.m3u8"):
         
         """Exportar resultados a M3U8"""
         all_rows = []
@@ -269,15 +269,21 @@ class ScraperManager:
                     
                     all_rows.append(row)
 
-        #filtered_rows = []
-        #if all_rows:   
-        #    for row in all_rows:
-        #        found_streams = asyncio.run(self.scan_streams(row.get("channel_url", "")))
-        #        if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
-        #            row["url_stream"] = found_streams[0]["url"]
-        #            row["headers"] = found_streams[0]["headers"]
-        #            filtered_rows.append(row)
+        filtered_rows = []
+        if all_rows:   
+            for row in all_rows:
+                found_streams = asyncio.run(self.scan_streams(row.get("channel_url", "")))
+                if found_streams and found_streams[0] and found_streams[0]["url"] and found_streams[0]["headers"]:
+                    row["url_stream"] = found_streams[0]["url"]
+                    row["headers"] = found_streams[0]["headers"]
+                    filtered_rows.append(row)
 
+        if filtered_rows:
+            with open(filepathdown, "w") as f:
+                #f.write("#EXTM3U\n")
+                for row in all_rows:
+                    f.write(f'#EXTINF:-1 tvg-id="" tvg-logo="" group-title="{row.get("source", "")}",{row.get("title", "")} {row.get("channel_name", "")}\n')
+                    f.write(format_url_with_headers(row.get("url_stream", ""), row.get("headers", "")))
             
         if all_rows:
             with open(filepath, "w") as f:
@@ -287,3 +293,33 @@ class ScraperManager:
                     f.write(f'{row.get("channel_url", "")}\n')
         else:
             logger.warning("No hay datos para exportar")        
+
+    
+    def format_url_with_headers(self, url, headers):
+        """
+        Formatea una URL y un diccionario de headers en el formato:
+        url|Header1=Value1&Header2=Value2&...
+        Los valores de los headers son URL-encoded.
+    
+        Args:
+            url (str): La URL base.
+            headers (dict): Un diccionario con los headers.
+    
+        Returns:
+            str: La cadena formateada.
+        """
+        # Crear lista de strings "key=encoded_value"
+        header_parts = []
+        for key, value in headers.items():
+            # Codificamos el valor del header. safe='' asegura que caracteres como / también se codifiquen.
+            encoded_value = urllib.parse.quote(str(value), safe='')
+            header_parts.append(f"{key}={encoded_value}")
+    
+        # Unir las partes con '&'
+        header_string = "&".join(header_parts)
+    
+        # Devolver el formato final
+        if header_string: # Solo añadir el '|' si hay headers
+            return f"{url}|{header_string}\n"
+        else:
+            return f"{url}\n" # Si no hay headers, devolver solo la URL
