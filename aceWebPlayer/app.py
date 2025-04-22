@@ -96,9 +96,9 @@ async def scan_streams(target_url):
 
         page.on("response", handle_response)
 
-        await page.goto(target_url)
+        await page.goto(target_url, timeout=60000)
         # Esperar hasta que se encuentre una coincidencia o hasta el timeout
-        timeout_task = asyncio.create_task(asyncio.sleep(5000/1000))  # Convertimos ms a segundos
+        timeout_task = asyncio.create_task(asyncio.sleep(60000/1000))  # Convertimos ms a segundos
         event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
         
         await asyncio.wait(
