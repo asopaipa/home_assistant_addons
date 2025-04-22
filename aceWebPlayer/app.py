@@ -235,6 +235,34 @@ def start_ffmpeg_process(stream_url, stream_id, stream_headers):
     
     error_thread = threading.Thread(target=monitor_errors, daemon=True)
     error_thread.start()
+
+
+    try:
+        # Opción B: (Alternativa) Si necesitas hacer otras cosas mientras esperas
+        while process.poll() is None:
+            print(f"[{stream_id}] FFmpeg process ({process.pid}) still running...")
+            time.sleep(5)
+        print(f"[{stream_id}] FFmpeg process ({process.pid}) finished with code: {process.returncode}")
+    
+    finally:
+        # Aunque el hilo sea daemon y termine solo, esperar explícitamente (join)
+        # es una buena práctica si quieres asegurarte de que *todo* el output de error
+        # se haya impreso antes de continuar o salir.
+        # No es estrictamente necesario para la "limpieza" si es daemon.
+        print(f"[{stream_id}] Joining error monitor thread...")
+        error_thread.join(timeout=2.0) # Espera un poco a que el hilo termine
+        if error_thread.is_alive():
+            print(f"[{stream_id}] Warning: Error monitor thread did not finish promptly.")
+        else:
+             print(f"[{stream_id}] Error monitor thread joined successfully.")
+    
+        # Asegurarse de cerrar explícitamente si aún no se ha hecho (aunque wait() debería hacerlo)
+        if process.stderr:
+            process.stderr.close()
+        if process.stdout:
+             process.stdout.close()
+    
+    print(f"[{stream_id}] Cleanup complete.")
     
     return stream_id
 
