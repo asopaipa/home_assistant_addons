@@ -269,17 +269,36 @@ def create_stream(stream_url):
         return {
             'stream_id': stream_id,
             'playlist_url': playlist_url,
-            'player_url': f"/?stream={quote(playlist_url)}"
         }
     except Exception as e:
         print(f"Error al crear stream: {str(e)}")
         return str(e), 500
 
-@app.route('/stream/playlist/<stream_id>/<path:filename>')
-def serve_playlist(stream_id, filename):
-    """Sirve la playlist o segmentos HLS"""
+
+async def check_stream(stream_id):
     if stream_id not in active_streams:
+        # Verificar periódicamente por 2 segundos
+        start_time = asyncio.get_event_loop().time()
+        while asyncio.get_event_loop().time() - start_time < 2:
+            # Verificar si el stream ya está disponible
+            if stream_id in active_streams:
+                return None  # Stream encontrado, continuar
+            # Esperar un poco antes de verificar de nuevo
+            await asyncio.sleep(0.1)
+            
+        # Si llegamos aquí, pasaron 2 segundos y no se encontró
         return "Stream no encontrado", 404
+    
+    # Si el stream ya estaba disponible desde el principio
+    return None
+    
+@app.route('/stream/playlist/<stream_id>/<path:filename>')
+async def serve_playlist(stream_id, filename):
+    """Sirve la playlist o segmentos HLS"""
+    error = await check_stream(stream_id)
+    if error:
+        return error
+
     
     # Actualizar timestamp de último acceso
     active_streams[stream_id]['last_access'] = time.time()
