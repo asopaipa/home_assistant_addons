@@ -199,5 +199,5 @@ def scrapIptv(urls, folder):
     # Exportar resultados
     #manager.export_to_json("all_events.json")
     #manager.export_to_csv(f"{folder}/all_events.csv")
-    manager.export_to_m3u(f"{folder}/web_iptv.m3u")
+    manager.export_to_m3u(f"{folder}/web_iptv.m3u", f"{folder}/web_iptv_headers.m3u")
     
