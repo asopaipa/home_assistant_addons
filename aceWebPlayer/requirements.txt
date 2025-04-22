@@ -6,4 +6,3 @@ werkzeug
 playwright
 setuptools
 bs4
-pandas
