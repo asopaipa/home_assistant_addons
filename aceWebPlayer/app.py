@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, Response, abort, send_file, jsonify, render_template_string, stream_with_context
-from getLinks import generar_m3u_from_url, decode_default_url, scan_streams
+from getLinks import generar_m3u_from_url, decode_default_url
 import re
 import os
 import json
