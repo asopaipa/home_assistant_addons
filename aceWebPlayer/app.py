@@ -51,82 +51,159 @@ def export_iptv(channels, filepath):
     else:
         logger.warning("No hay datos para exportar")     
         
-async def scan_streams(target_url):
+async def scan_streams(target_url, wait_time=30): # Aumentamos el tiempo de espera por defecto
+    """
+    Escanea una URL en busca de streams M3U8 o MP4, manejando iframes y
+    esperando la ejecución de JavaScript.
+
+    Args:
+        target_url (str): La URL a escanear.
+        wait_time (int): Tiempo máximo en segundos para esperar a que aparezca
+                         el stream después de que la página cargue.
+    """
     found_streams = []
     event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
+    unique_urls_found = set() # Para evitar duplicados si se captura en request y response
+
+    print(f"Iniciando escaneo para: {target_url}")
+
     async with async_playwright() as p:
+        # Lanza el navegador. Pon headless=False si quieres ver qué está pasando.
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
+        context = await browser.new_context(
+            # Simular un User-Agent común puede ayudar a evitar bloqueos
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        )
         page = await context.new_page()
 
-        # Función para manejar las requests (tanto de la página principal como de los iframes)
+        # --- Handlers para Requests y Responses ---
+        async def process_url(url, headers, source):
+            nonlocal found_streams, unique_urls_found
+            # Comprobar si ya hemos encontrado este stream específico
+            if event.is_set() or url in unique_urls_found:
+                return
+
+            # Buscar ".m3u8" o ".mp4" en la URL (considerando posibles parámetros query)
+            if re.search(r'\.(m3u8|mp4)($|\?)', url):
+                print(f"¡STREAM ENCONTRADO ({source})!: {url}")
+                stream_data = {
+                    "url": url,
+                    "headers": dict(headers) # Captura headers relevantes
+                }
+                # Solo añade si no lo hemos visto antes
+                if url not in unique_urls_found:
+                    found_streams.append(stream_data)
+                    unique_urls_found.add(url)
+                    event.set() # Señalamos que encontramos una coincidencia
+
         async def handle_request(req):
-            nonlocal found_streams
-            if found_streams:  # Si ya encontramos uno, ignoramos
-                return
-            url = req.url
-            print(f"REQUEST: {url}")
-            if any(x in url for x in ["m3u8", "mp4"]):
-                print("siiii")
-                found_streams.append({
-                    "url": url,
-                    "headers": dict(req.headers)
-                })
-                event.set()  # Señalamos que encontramos una coincidencia
+            #print(f"Request: {req.url[:100]}...") # Descomenta para depurar TODAS las requests
+            await process_url(req.url, req.headers, "Request")
 
-        # Función para manejar las responses (tanto de la página principal como de los iframes)
         async def handle_response(res):
-            nonlocal found_streams
-            if found_streams:  # Si ya encontramos uno, ignoramos
-                return
-            url = res.url
-            print(f"RESPONSE: {url}")
-            if any(x in url for x in ["m3u8", "mp4"]):
-                print("siiii2")
-                found_streams.append({
-                    "url": url,
-                    "headers": dict(res.headers)
-                })
-                event.set()  # Señalamos que encontramos una coincidencia
+            #print(f"Response: {res.status} {res.url[:100]}...") # Descomenta para depurar TODAS las responses
+            await process_url(res.url, res.headers, "Response")
 
-        # Asigna los handlers a la página principal
+        # --- Adjuntar listeners a la página principal ---
+        # Es importante hacerlo ANTES de navegar
         page.on("request", handle_request)
         page.on("response", handle_response)
 
+        # --- Función para adjuntar listeners a iframes (recursiva) ---
+        # Se llamará después de la navegación inicial para capturar iframes existentes
+        async def attach_listeners_to_frames(frame):
+            #print(f"Adjuntando listeners al frame: {frame.url}")
+            try:
+                # Intentamos adjuntar listeners. Puede fallar si el frame se desvincula.
+                frame.on("request", handle_request)
+                frame.on("response", handle_response)
+                for child in frame.child_frames:
+                    await attach_listeners_to_frames(child)
+            except Exception as e:
+                print(f"Advertencia: No se pudo adjuntar listener al frame {frame.url}: {e}")
 
-        # Función para manejar los iframes de forma recursiva
-        async def handle_iframes(frame):
-            frame.on("request", handle_request)
-            frame.on("response", handle_response)
+        try:
+            print(f"Navegando a {target_url}...")
+            # Navega y espera a que la red esté 'idle' (inactiva),
+            # lo que sugiere que la mayoría de las cargas iniciales han terminado.
+            # Aumenta el timeout general de navegación si la página es muy lenta.
+            await page.goto(target_url, timeout=90000, wait_until='networkidle')
+            print("Navegación completada (network idle).")
 
-            for child_frame in frame.child_frames:
-                await handle_iframes(child_frame)
+            # --- Adjuntar listeners a los iframes existentes después de cargar ---
+            print("Buscando y adjuntando listeners a iframes...")
+            await attach_listeners_to_frames(page.main_frame)
+            print("Listeners adjuntados a los iframes iniciales.")
 
-        # Llama a la función recursiva para manejar los iframes desde el frame principal
-        await handle_iframes(page.main_frame)
+            # --- (OPCIONAL) Simular Interacción ---
+            # Si necesitas hacer clic en un botón de play, descomenta y adapta:
+            # try:
+            #     play_button_selector = "#idDelBotonPlay" # CAMBIA ESTO por el selector CSS o XPath correcto
+            #     print(f"Intentando hacer clic en el botón de reproducción: {play_button_selector}")
+            #
+            #     # Intenta encontrar el botón en la página principal o en cualquier iframe
+            #     clicked = False
+            #     if await page.locator(play_button_selector).count() > 0:
+            #          await page.locator(play_button_selector).click(timeout=5000)
+            #          print("Botón de reproducción encontrado y clickeado en la página principal.")
+            #          clicked = True
+            #     else:
+            #         for frame in page.frames:
+            #             # Es importante esperar brevemente a que el frame esté listo
+            #             await frame.wait_for_load_state('domcontentloaded', timeout=5000)
+            #             if await frame.locator(play_button_selector).count() > 0:
+            #                 await frame.locator(play_button_selector).click(timeout=5000)
+            #                 print(f"Botón de reproducción encontrado y clickeado en iframe: {frame.url}")
+            #                 clicked = True
+            #                 break # Asumimos que solo hay un botón principal
+            #
+            #     if clicked:
+            #         await asyncio.sleep(2) # Pequeña pausa después del clic
+            #     else:
+            #          print("Botón de reproducción no encontrado (o no necesario).")
+            #
+            # except PlaywrightTimeoutError:
+            #     print("Timeout al intentar hacer clic en el botón de reproducción.")
+            # except Exception as e:
+            #     print(f"Error al intentar hacer clic en el botón: {e}")
+            # -----------------------------------------
 
+            # --- Espera Principal ---
+            # Ahora esperamos un tiempo adicional (wait_time) para que cualquier
+            # JavaScript retrasado haga la solicitud del stream.
+            # O hasta que nuestro handler capture el stream y active el 'event'.
+            print(f"Esperando hasta {wait_time} segundos para la detección del stream...")
+            try:
+                await asyncio.wait_for(event.wait(), timeout=wait_time)
+                print("¡Stream detectado por el handler!")
+            except asyncio.TimeoutError:
+                print(f"Timeout: No se detectó ningún stream m3u8/mp4 en los {wait_time} segundos de espera adicionales.")
 
+            # --- Obtener HTML Final (Opcional) ---
+            print("\nObteniendo el HTML final renderizado...")
+            try:
+                final_html = await page.content()
+                filepath = f"{FOLDER_RESOURCES}/web_iptv_final.html"
+                with open(filepath, "w", encoding='utf-8') as f:
+                     f.write(final_html)
+                print(f"HTML final guardado en: {filepath}")
+            except Exception as e:
+                print(f"No se pudo guardar el HTML final: {e}")
+            #print("--- HTML Final ---")
+            #print(final_html[:1000] + "...") # Imprime solo una parte
+            #print("--- Fin HTML ---")
 
-        await page.goto(target_url, timeout=60000)
+        except PlaywrightTimeoutError:
+            print(f"Timeout durante la navegación o carga inicial de {target_url}")
+        except Exception as e:
+            print(f"Ocurrió un error inesperado durante el escaneo: {e}")
+        finally:
+            print("Cerrando el navegador.")
+            await browser.close()
 
-        # Esperar hasta que se encuentre una coincidencia o hasta el timeout
-        timeout_task = asyncio.create_task(asyncio.sleep(60))  # Convertimos ms a segundos (simplificado)
-        event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
+    if not found_streams:
+        print("No se encontraron streams M3U8 o MP4.")
 
-        await asyncio.wait(
-            [event_wait_task, timeout_task],
-            return_when=asyncio.FIRST_COMPLETED
-        )
-
-        print("\nObteniendo el HTML final renderizado...")
-        final_html = await page.content()
-        with open(f"{FOLDER_RESOURCES}/web_iptv.html", "w") as f:
-            f.write(final_html);
-        print("--- HTML Final de la Página ---")
-        #print(final_html) # Evita imprimir HTML muy largo
-        print("--- Fin del HTML ---\n")
-
-        await browser.close()
     return found_streams
 
 def format_url_with_headers(url, headers):
