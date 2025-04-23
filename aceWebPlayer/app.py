@@ -167,6 +167,7 @@ async def scan_streams(target_url):
             #            pass
             
             # Buscar y procesar iframes
+            """
             if not found_streams:
                 iframe_handles = await page.query_selector_all('iframe')
                 print(f"Encontrados {len(iframe_handles)} iframes")
@@ -207,7 +208,7 @@ async def scan_streams(target_url):
                                         print(f"Error al abrir iframe en nueva pestaña: {e}")
                     except Exception as e:
                         print(f"Error procesando iframe {idx+1}: {e}")
-            
+            """
             # Esperar para encontrar streams
             print("Esperando para encontrar streams (60 segundos)...")
             try:
