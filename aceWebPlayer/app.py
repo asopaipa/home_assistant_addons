@@ -59,7 +59,7 @@ async def scan_streams(target_url):
         # Usar chromium con todas las funcionalidades
         browser = await p.chromium.launch(
             headless=True,  # Cambia a True en producción
-            args=['--autoplay-policy=no-user-gesture-required', '--disable-web-security']  # Permitir autoplay
+            args=['--autoplay-policy=no-user-gesture-required']  # Permitir autoplay
         )
         
         # Crear contexto con permisos de media
