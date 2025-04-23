@@ -59,10 +59,8 @@ async def scan_streams(target_url):
         # Configuración del navegador
         browser = await p.chromium.launch(
             headless=True,
+            channel="chrome",  # Usa Chrome en lugar de Chromium
             args=[
-                '--use-fake-ui-for-media-stream',
-                '--no-sandbox',
-                '--use-fake-device-for-media-stream',
                 '--autoplay-policy=no-user-gesture-required',
                 '--window-size=1920,1080',
                 '--disable-features=IsolateOrigins,site-per-process',
