@@ -58,8 +58,11 @@ async def scan_streams(target_url):
     async with async_playwright() as p:
         # Configuración del navegador
         browser = await p.chromium.launch(
-            headless=False,
+            headless=True,
             args=[
+                '--use-fake-ui-for-media-stream',
+                '--use-fake-device-for-media-stream',
+                '--autoplay-policy=no-user-gesture-required',
                 '--autoplay-policy=no-user-gesture-required',
                 '--window-size=1920,1080',
                 '--disable-features=IsolateOrigins,site-per-process',
