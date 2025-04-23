@@ -114,37 +114,41 @@ async def scan_streams(target_url):
             print("Página cargada inicialmente")
             
             # Esperar carga inicial
-            await asyncio.sleep(8)
-            
-            # Inyectar script para eliminar características restrictivas
-            await page.evaluate("""() => {
-                // Eliminar atributos sandbox
-                document.querySelectorAll('iframe[sandbox]').forEach(iframe => {
-                    iframe.removeAttribute('sandbox');
-                });
-                
-                // Modificar reproductor de video para autoplay
-                document.querySelectorAll('video').forEach(video => {
-                    video.autoplay = true;
-                    video.muted = true;  // Los navegadores permiten autoplay si está silenciado
-                    video.play().catch(e => console.log('Error al reproducir:', e));
-                });
-                
-                // Simular interacción de usuario
-                const simulateUserInteraction = () => {
-                    document.body.click();
-                    document.querySelectorAll('video, [class*="player"], [id*="player"]').forEach(el => {
-                        try {
-                            if (el.play) el.play();
-                            el.click();
-                        } catch(e) {}
+            i=0.1
+            if not found_streams and i > 8:
+                i=i+0.1
+                await asyncio.sleep(0.1)
+
+            if not found_streams:
+                # Inyectar script para eliminar características restrictivas
+                await page.evaluate("""() => {
+                    // Eliminar atributos sandbox
+                    document.querySelectorAll('iframe[sandbox]').forEach(iframe => {
+                        iframe.removeAttribute('sandbox');
                     });
-                };
-                
-                // Ejecutar ahora y después de un tiempo
-                simulateUserInteraction();
-                setTimeout(simulateUserInteraction, 3000);
-            }""")
+                    
+                    // Modificar reproductor de video para autoplay
+                    document.querySelectorAll('video').forEach(video => {
+                        video.autoplay = true;
+                        video.muted = true;  // Los navegadores permiten autoplay si está silenciado
+                        video.play().catch(e => console.log('Error al reproducir:', e));
+                    });
+                    
+                    // Simular interacción de usuario
+                    const simulateUserInteraction = () => {
+                        document.body.click();
+                        document.querySelectorAll('video, [class*="player"], [id*="player"]').forEach(el => {
+                            try {
+                                if (el.play) el.play();
+                                el.click();
+                            } catch(e) {}
+                        });
+                    };
+                    
+                    // Ejecutar ahora y después de un tiempo
+                    simulateUserInteraction();
+                    setTimeout(simulateUserInteraction, 3000);
+                }""")
             
             # Simular acciones de usuario
             await page.mouse.move(500, 500)
@@ -163,45 +167,46 @@ async def scan_streams(target_url):
             #            pass
             
             # Buscar y procesar iframes
-            iframe_handles = await page.query_selector_all('iframe')
-            print(f"Encontrados {len(iframe_handles)} iframes")
-            
-            for idx, iframe in enumerate(iframe_handles):
-                try:
-                    iframe_src = await iframe.get_attribute('src')
-                    if iframe_src:
-                        print(f"Procesando iframe {idx+1}: {iframe_src}")
-                        
-                        # Intentar acceder al contenido del iframe
-                        frame = await iframe.content_frame()
-                        if frame:
-                            # Intentar reproducir videos dentro del iframe
-                            await frame.evaluate("""() => {
-                                document.querySelectorAll('video').forEach(v => {
-                                    v.autoplay = true;
-                                    v.muted = true;
-                                    v.play().catch(e => {});
-                                });
-                                
-                                // Clic en elementos potenciales
-                                ['video', '[class*="play"]', '[id*="player"]'].forEach(selector => {
-                                    document.querySelectorAll(selector).forEach(el => {
-                                        try { el.click(); } catch(e) {}
+            if not found_streams:
+                iframe_handles = await page.query_selector_all('iframe')
+                print(f"Encontrados {len(iframe_handles)} iframes")
+                
+                for idx, iframe in enumerate(iframe_handles):
+                    try:
+                        iframe_src = await iframe.get_attribute('src')
+                        if iframe_src:
+                            print(f"Procesando iframe {idx+1}: {iframe_src}")
+                            
+                            # Intentar acceder al contenido del iframe
+                            frame = await iframe.content_frame()
+                            if frame:
+                                # Intentar reproducir videos dentro del iframe
+                                await frame.evaluate("""() => {
+                                    document.querySelectorAll('video').forEach(v => {
+                                        v.autoplay = true;
+                                        v.muted = true;
+                                        v.play().catch(e => {});
                                     });
-                                });
-                            }""")
-                        else:
-                            # Si no podemos acceder al iframe, intenta abrir en nueva pestaña
-                            if iframe_src.startsWith('http'):
-                                try:
-                                    iframe_page = await context.new_page()
-                                    await iframe_page.goto(iframe_src, timeout=30000)
-                                    await asyncio.sleep(5)
-                                    await iframe_page.close()
-                                except Exception as e:
-                                    print(f"Error al abrir iframe en nueva pestaña: {e}")
-                except Exception as e:
-                    print(f"Error procesando iframe {idx+1}: {e}")
+                                    
+                                    // Clic en elementos potenciales
+                                    ['video', '[class*="play"]', '[id*="player"]'].forEach(selector => {
+                                        document.querySelectorAll(selector).forEach(el => {
+                                            try { el.click(); } catch(e) {}
+                                        });
+                                    });
+                                }""")
+                            else:
+                                # Si no podemos acceder al iframe, intenta abrir en nueva pestaña
+                                if iframe_src.startsWith('http'):
+                                    try:
+                                        iframe_page = await context.new_page()
+                                        await iframe_page.goto(iframe_src, timeout=30000)
+                                        await asyncio.sleep(5)
+                                        await iframe_page.close()
+                                    except Exception as e:
+                                        print(f"Error al abrir iframe en nueva pestaña: {e}")
+                    except Exception as e:
+                        print(f"Error procesando iframe {idx+1}: {e}")
             
             # Esperar para encontrar streams
             print("Esperando para encontrar streams (60 segundos)...")
