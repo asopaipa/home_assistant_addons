@@ -55,195 +55,148 @@ async def scan_streams(target_url):
     found_streams = []
     event = asyncio.Event()
     
+    
     async with async_playwright() as p:
-        # Usar chromium con todas las funcionalidades
-        browser = await p.chromium.launch(
-            headless=True,  # Cambia a True en producción
-            args=['--autoplay-policy=no-user-gesture-required']  # Permitir autoplay
-        )
-        
-        # Crear contexto con permisos de media
-        context = await browser.new_context(
-            permissions=['geolocation', 'microphone', 'camera'],
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        )
-        
-        # Registrar los eventos de red a nivel de contexto
+        event = asyncio.Event()
+
         async def handle_request(req):
             nonlocal found_streams
-            if found_streams:
+            if found_streams:  # Si ya encontramos uno, ignoramos
                 return
-                
             url = req.url
-            print(f"Request: {url}")
-            
-            # Buscar patrones de streaming
-            if any(x in url.lower() for x in ["m3u8", ".ts", "mp4", "mpd", "dash", "playlist", "manifest", "stream"]):
-                print(f"⭐ Potencial stream encontrado (request): {url}")
+            print(f"REQUEST: {url}")
+            if any(x in url for x in ["m3u8", "mp4"]):
+                print("siiii")
                 found_streams.append({
                     "url": url,
-                    "headers": dict(req.headers),
-                    "source": "request",
-                    "type": "unknown"
+                    "headers": dict(req.headers)
                 })
-                # No hacemos event.set() inmediatamente para seguir capturando
-                
-                # Si es definitivamente un m3u8 o mp4, entonces sí terminamos
-                if any(x in url.lower() for x in ["m3u8", "mp4"]):
-                    print(f"🎯 Stream confirmado: {url}")
-                    event.set()
-                
+                event.set()  # Señalamos que encontramos una coincidencia
+
+        # Función para manejar las responses (tanto de la página principal como de los iframes)
         async def handle_response(res):
             nonlocal found_streams
-            if event.is_set():  # Solo nos detenemos si ya tenemos un stream confirmado
+            if found_streams:  # Si ya encontramos uno, ignoramos
                 return
-                
             url = res.url
-            content_type = res.headers.get("content-type", "")
-            print(f"Response: {url} ({content_type})")
-            
-            # Buscar por URL o Content-Type
-            if (any(x in url.lower() for x in ["m3u8", ".ts", "mp4", "mpd", "dash", "playlist", "manifest", "stream"]) or
-                any(x in content_type.lower() for x in ["video", "audio", "stream", "mpegurl", "mp4"])):
-                
-                print(f"⭐ Potencial stream encontrado (response): {url}")
-                stream_type = "unknown"
-                
-                # Intentar determinar el tipo
-                if "m3u8" in url.lower() or "mpegurl" in content_type.lower():
-                    stream_type = "HLS"
-                elif "mpd" in url.lower() or "dash" in content_type.lower():
-                    stream_type = "DASH"
-                elif "mp4" in url.lower() or "mp4" in content_type.lower():
-                    stream_type = "MP4"
-                
+            print(f"RESPONSE: {url}")
+            if any(x in url for x in ["m3u8", "mp4"]):
+                print("siiii2")
                 found_streams.append({
                     "url": url,
-                    "headers": dict(res.headers),
-                    "content_type": content_type,
-                    "source": "response",
-                    "type": stream_type
+                    "headers": dict(res.headers)
                 })
-                
-                # Si es definitivamente un stream, terminamos
-                if any(x in url.lower() for x in ["m3u8", "mp4"]) or any(x in content_type.lower() for x in ["mpegurl", "mp4"]):
-                    print(f"🎯 Stream confirmado: {url}")
-                    event.set()
+                event.set()  # Señalamos que encontramos una coincidencia
+
+
         
-        # Configurar eventos
+        # Lanzar un navegador completo y visible
+        browser = await p.chromium.launch(
+            headless=False,  # Navegador visible
+            args=[
+                '--autoplay-policy=no-user-gesture-required',  # Permitir autoplay
+                '--window-size=1920,1080',  # Tamaño de pantalla estándar
+                '--disable-features=IsolateOrigins,site-per-process',  # Desactivar aislamiento de origen
+                '--disable-site-isolation-trials'  # Ayuda con los iframes
+            ]
+        )
+        
+        # Configurar el contexto con capacidades avanzadas
+        context = await browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            permissions=['geolocation', 'microphone', 'camera', 'media'],
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+            is_mobile=False,
+            has_touch=False,
+            device_scale_factor=1,
+            ignore_https_errors=True,  # Ignorar errores SSL
+            java_script_enabled=True,
+            locale='es-ES'  # Usar configuración regional española
+        )
+        
+        # Configurar eventos de captura de red
         context.on("request", handle_request)
         context.on("response", handle_response)
         
-        # Crear página y navegar
         page = await context.new_page()
         
         try:
-            # Navegar a la URL objetivo
-            await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
-            print("Página cargada inicialmente")
+            # Configurar manejo de diálogos
+            page.on("dialog", lambda dialog: dialog.accept())
             
-            # Esperar un tiempo para que cargue el JS inicial
-            await asyncio.sleep(5)
+            # Ir a la URL
+            await page.goto(target_url, wait_until="networkidle", timeout=60000)
+            print("Página cargada completamente")
+
+            timeout_task = asyncio.create_task(asyncio.sleep(60))  # Convertimos ms a segundos (simplificado)
+            event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
+    
+            await asyncio.wait(
+                [event_wait_task, timeout_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
             
-            # Interactuar con la página para desencadenar la reproducción
-            # Buscar elementos comunes que podrían ser botones de reproducción
-            potential_play_elements = [
-                'button[class*="play"]', 
-                'div[class*="play"]',
-                'span[class*="play"]',
-                'svg[class*="play"]',
-                'i[class*="play"]',
-                '.play-button',
-                '.video-player',
-                '.player-container',
-                'video',
-                'iframe'
+            # Esperar un tiempo significativo para que todo se cargue
+            await asyncio.sleep(10)
+            
+            # Mover el ratón para simular presencia humana
+            await page.mouse.move(500, 500)
+            await asyncio.sleep(1)
+            
+            # Buscar el reproductor de video y activarlo
+            selectors_to_try = [
+                "video", 
+                ".video-js", 
+                ".player", 
+                "[id*='player']", 
+                "[class*='player']",
+                "iframe"
             ]
             
-            # Intentar clicar en elementos que puedan iniciar la reproducción
-            #for selector in potential_play_elements:
+            #for selector in selectors_to_try:
             #    elements = await page.query_selector_all(selector)
-            #    for element in elements:
-            #        try:
-            #            print(f"Intentando clicar en {selector}")
-            #            await element.click(timeout=1000)
-            #            await asyncio.sleep(2)  # Esperar un poco para ver si se desencadena alguna petición
-            #            if event.is_set():
-            #                break
-            #        except Exception as e:
-            #            pass  # Ignorar errores al clicar
-            #    
-            #    if event.is_set():
-            #        break
-            
-            # Procesar iframes (pueden contener reproductores)
-            iframe_handles = await page.query_selector_all('iframe')
-            print(f"Encontrados {len(iframe_handles)} iframes")
-            
-            for i, iframe in enumerate(iframe_handles):
-                try:
-                    iframe_src = await iframe.get_attribute('src')
-                    print(f"Procesando iframe {i+1}: {iframe_src}")
-                    
-                    if iframe_src:
-                        # Obtener el frame si ya está cargado
-                        frame = page.frame_by_url(iframe_src)
-                        if not frame:
-                            # Si no está cargado, intentamos acceder a él
-                            frame = await iframe.content_frame()
+            #    if elements:
+            #        print(f"Encontrado {len(elements)} elementos con selector {selector}")
+            #        
+            #        for element in elements:
+            #            # Hacer scroll hacia el elemento
+            #            await element.scroll_into_view_if_needed()
+            #            await asyncio.sleep(1)
                         
-                        if frame:
-                            # Esperar a que cargue el iframe
-                            await frame.wait_for_load_state("domcontentloaded", timeout=10000)
-                            
-                            # Intentar interactuar con elementos dentro del iframe
-                            for selector in potential_play_elements:
-                                try:
-                                    iframe_elements = await frame.query_selector_all(selector)
-                                    for el in iframe_elements:
-                                        try:
-                                            print(f"Intentando clicar en {selector} dentro del iframe {i+1}")
-                                            await el.click(timeout=1000)
-                                            await asyncio.sleep(2)
-                                        except Exception as e:
-                                            pass  # Ignorar errores al clicar
-                                except Exception as e:
-                                    pass
-                            
-                except Exception as e:
-                    print(f"Error procesando iframe {i+1}: {str(e)}")
+                        # Intentar hacer clic
+            #            try:
+            #                await element.click(force=True)
+            #                print(f"Clic realizado en {selector}")
+            #                await asyncio.sleep(3)
+            #            except Exception as e:
+            #                print(f"No se pudo hacer clic en {selector}: {e}")
             
-            # Esperar a encontrar un stream o al timeout
-            timeout_seconds = 60
-            print(f"Esperando hasta {timeout_seconds} segundos por un stream...")
+            # Esperar más tiempo para que el video comience
+            print("Esperando que el video comience...")
+            await asyncio.sleep(20)
             
+            # Capturar screenshot
+            await page.screenshot(path="screenshot.png")
+            
+            # Esperar por las solicitudes de streaming
             try:
-                await asyncio.wait_for(event.wait(), timeout=timeout_seconds)
-                print("¡Stream encontrado!")
+                await asyncio.wait_for(event.wait(), timeout=90)
             except asyncio.TimeoutError:
-                print(f"Timeout después de {timeout_seconds} segundos sin encontrar stream confirmado")
-                
-                # Si no encontramos un stream confirmado pero tenemos potenciales, usamos el primero
-                if found_streams and not event.is_set():
-                    print(f"Usando el mejor candidato de {len(found_streams)} streams potenciales")
-                
-            # Capturar screenshot para debug
-            await page.screenshot(path=f"{FOLDER_RESOURCES}/screenshot.png")
+                print("Timeout esperando streams")
             
-            # Capturar HTML final
+            # Guardar HTML final
             final_html = await page.content()
-            with open(f"{FOLDER_RESOURCES}/web_iptv.html", "w", encoding="utf-8") as f:
+            with open("web_iptv.html", "w", encoding="utf-8") as f:
                 f.write(final_html)
-            
-        except Exception as e:
-            print(f"Error durante la ejecución: {str(e)}")
+                
         finally:
+            # En producción, cambiar a:
             await browser.close()
-    
-    # Ordenar los streams encontrados por preferencia
-    if found_streams:
-        # Priorizar m3u8 sobre otros formatos
-        found_streams.sort(key=lambda x: 0 if "m3u8" in x["url"].lower() else 1)
+            
+            # Para debug, mantener abierto:
+            #print("Navegador mantenido abierto para inspección manual")
+            #await asyncio.sleep(60)  # Mantener abierto por 60 segundos
+            #await browser.close()
     
     return found_streams
 
