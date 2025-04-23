@@ -126,7 +126,26 @@ async def scan_streams(target_url):
                 return_when=asyncio.FIRST_COMPLETED
             )
             
-                    
+                           
+            # Guardar el HTML final
+            print("\nObteniendo el HTML final renderizado...")
+            final_html = await page.content()
+            with open(f"{FOLDER_RESOURCES}/web_iptv.html", "w", encoding="utf-8") as f:
+                f.write(final_html)
+            
+            # Extraer también el HTML de cada iframe
+            for idx, iframe in enumerate(iframe_handles):
+                try:
+                    iframe_src = await iframe.get_attribute('src')
+                    if iframe_src:
+                        frame = page.frame_by_url(iframe_src)
+                        if frame:
+                            iframe_html = await frame.content()
+                            with open(f"{FOLDER_RESOURCES}/iframe_{idx+1}.html", "w", encoding="utf-8") as f:
+                                f.write(iframe_html)
+                            print(f"Guardado HTML del iframe {idx+1}")
+                except Exception as e:
+                    print(f"No se pudo guardar el HTML del iframe {idx+1}: {str(e)}")
         except Exception as e:
             print(f"Error durante la navegación: {str(e)}")
         finally:
