@@ -161,20 +161,20 @@ async def scan_streams(target_url):
             ]
             
             # Intentar clicar en elementos que puedan iniciar la reproducción
-            for selector in potential_play_elements:
-                elements = await page.query_selector_all(selector)
-                for element in elements:
-                    try:
-                        print(f"Intentando clicar en {selector}")
-                        await element.click(timeout=1000)
-                        await asyncio.sleep(2)  # Esperar un poco para ver si se desencadena alguna petición
-                        if event.is_set():
-                            break
-                    except Exception as e:
-                        pass  # Ignorar errores al clicar
-                
-                if event.is_set():
-                    break
+            #for selector in potential_play_elements:
+            #    elements = await page.query_selector_all(selector)
+            #    for element in elements:
+            #        try:
+            #            print(f"Intentando clicar en {selector}")
+            #            await element.click(timeout=1000)
+            #            await asyncio.sleep(2)  # Esperar un poco para ver si se desencadena alguna petición
+            #            if event.is_set():
+            #                break
+            #        except Exception as e:
+            #            pass  # Ignorar errores al clicar
+            #    
+            #    if event.is_set():
+            #        break
             
             # Procesar iframes (pueden contener reproductores)
             iframe_handles = await page.query_selector_all('iframe')
