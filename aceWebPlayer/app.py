@@ -72,8 +72,8 @@ async def scan_streams(target_url):
         # Configuración del contexto
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            permissions=['geolocation', 'microphone', 'camera'],
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+            permissions=['geolocation'],
+            #user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
             ignore_https_errors=True
         )
         
