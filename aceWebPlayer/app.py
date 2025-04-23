@@ -58,7 +58,7 @@ async def scan_streams(target_url):
     async with async_playwright() as p:
         # Usar chromium con todas las funcionalidades
         browser = await p.chromium.launch(
-            headless=False,  # Cambia a True en producción
+            headless=True,  # Cambia a True en producción
             args=['--autoplay-policy=no-user-gesture-required']  # Permitir autoplay
         )
         
