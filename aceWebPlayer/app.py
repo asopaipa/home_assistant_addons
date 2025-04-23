@@ -109,6 +109,8 @@ async def scan_streams(target_url):
 
         print("\nObteniendo el HTML final renderizado...")
         final_html = await page.content()
+        with open(f"{FOLDER_RESOURCES}/web_iptv.html", "w") as f:
+            f.write(final_html);
         print("--- HTML Final de la Página ---")
         print(final_html)
         print("--- Fin del HTML ---\n")
