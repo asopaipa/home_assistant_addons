@@ -106,26 +106,10 @@ async def scan_streams(target_url):
         context.on("request", handle_request)
         context.on("response", handle_response)
         
-        # Crear página y configurar CDP
+        # Crear página 
         page = await context.new_page()
-        client = await page.context.new_cdp_session(page)
-        
-        # Habilitar eventos de red con CDP
-        await client.send('Network.enable')
-        await client.send('Network.setBypassServiceWorker', {'bypass': True})
-        
-        # Eventos CDP adicionales para captura
-        async def on_request_will_be_sent(event):
-            url = event.get('request', {}).get('url', '')
-            if any(x in url.lower() for x in ["m3u8", ".ts", "mp4"]):
-                print(f"📡 CDP Stream encontrado: {url}")
-                found_streams.append({
-                    "url": url,
-                    "source": "cdp"
-                })
-                event.set()
+
                 
-        client.on('Network.requestWillBeSent', on_request_will_be_sent)
         
         try:
             # Navegación inicial
