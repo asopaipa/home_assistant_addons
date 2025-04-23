@@ -58,64 +58,79 @@ async def scan_streams(target_url):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
-        page = await context.new_page()
-
         # Captura de requests
         async def handle_request(req):
             nonlocal found_streams
             if found_streams:  # Si ya encontramos uno, ignoramos
                 return
             url = req.url  
-            print(url)
+            print(f"Request: {url}")
             if any(x in url for x in ["m3u8", "mp4"]):
-                print("siiii")
+                print(f"Stream encontrado en request: {url}")
                 found_streams.append({
                     "url": url,
                     "headers": dict(req.headers)
                 })
                 event.set()  # Señalamos que encontramos una coincidencia
-
-        page.on("request", handle_request)
-
         # Captura de responses
         async def handle_response(res):
             nonlocal found_streams
             if found_streams:  # Si ya encontramos uno, ignoramos
                 return
             url = res.url
-            print(url)
+            print(f"Response: {url}")
             if any(x in url for x in ["m3u8", "mp4"]):
-                print("siiii2")
+                print(f"Stream encontrado en response: {url}")
                 found_streams.append({
                     "url": url,
                     "headers": dict(res.headers)
                 })
                 event.set()  # Señalamos que encontramos una coincidencia
 
+        # Aplicar los event listeners a nivel de contexto
+        context.on("request", handle_request)
+        context.on("response", handle_response)
         
-
-        page.on("response", handle_response)
-
-        await page.goto(target_url, timeout=60000)
-        # Esperar hasta que se encuentre una coincidencia o hasta el timeout
-        timeout_task = asyncio.create_task(asyncio.sleep(60000/1000))  # Convertimos ms a segundos
-        event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
+        page = await context.new_page()
         
-        await asyncio.wait(
-            [event_wait_task, timeout_task],
-            return_when=asyncio.FIRST_COMPLETED
-        )
-
-
-        print("\nObteniendo el HTML final renderizado...")
-        final_html = await page.content()
-        with open(f"{FOLDER_RESOURCES}/web_iptv.html", "w") as f:
-            f.write(final_html);
-        print("--- HTML Final de la Página ---")
-        print(final_html)
-        print("--- Fin del HTML ---\n")
-        
-        await browser.close()
+        try:
+            # Navegar a la página con un timeout amplio
+            await page.goto(target_url, timeout=60000, wait_until="networkidle")
+            
+            # Buscar todos los iframes en la página
+            iframe_handles = await page.query_selector_all('iframe')
+            print(f"Encontrados {len(iframe_handles)} iframes en la página principal")
+            
+            # Interactuar con cada iframe para asegurarnos de que su contenido se carga
+            for idx, iframe in enumerate(iframe_handles):
+                try:
+                    # Obtener el src del iframe
+                    iframe_src = await iframe.get_attribute('src')
+                    print(f"Iframe {idx+1} src: {iframe_src}")
+                    
+                    if iframe_src:
+                        # Si tiene un src válido, intentar cargar su contenido
+                        frame = page.frame_by_url(iframe_src)
+                        if frame:
+                            # Esperar a que el contenido del iframe se cargue completamente
+                            await frame.wait_for_load_state("networkidle", timeout=10000)
+                except Exception as e:
+                    print(f"Error procesando iframe {idx+1}: {str(e)}")
+            
+            # Esperar hasta encontrar una coincidencia o timeout
+            timeout_task = asyncio.create_task(asyncio.sleep(60))  # 60 segundos de timeout
+            event_wait_task = asyncio.create_task(event.wait())
+            
+            await asyncio.wait(
+                [event_wait_task, timeout_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+                    
+        except Exception as e:
+            print(f"Error durante la navegación: {str(e)}")
+        finally:
+            await browser.close()
 
     return found_streams
 
