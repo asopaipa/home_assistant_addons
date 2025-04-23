@@ -57,19 +57,16 @@ async def scan_streams(target_url):
     
     async with async_playwright() as p:
         # Configuración del navegador
-        browser = await p.chromium.launch(
+        prefs = {
+            "media.autoplay.default": 0,  # 0=Allowed, 1=Blocked, 2=Prompt
+            "media.autoplay.blocking_policy": 0, # Deshabilitar política de bloqueo adicional
+            "media.autoplay.allow-muted": True, # A menudo necesario incluso con autoplay permitido
+            "security.mixed_content.block_active_content": False # ¡PELIGROSO! Solo para diagnóstico
+        }
+        
+        browser = p.firefox.launch(
             headless=True,
-            args=[
-                '--use-fake-ui-for-media-stream',
-                '--use-fake-device-for-media-stream',
-                '--autoplay-policy=no-user-gesture-required',
-                '--autoplay-policy=no-user-gesture-required',
-                '--window-size=1920,1080',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials',
-                '--disable-web-security',  # Desactiva restricciones de seguridad
-                '--allow-running-insecure-content'  # Permite contenido mezclado
-            ]
+            firefox_user_prefs=prefs
         )
         
         # Configuración del contexto
