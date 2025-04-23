@@ -80,7 +80,7 @@ async def scan_streams(target_url):
         # Manejo de eventos de red
         async def handle_request(req):
             url = req.url
-            if any(x in url for x in ["mono.m3u8"]):
+            if any(x in url for x in [".m3u8",".mp4"]):
                 print(f"⭐ Stream encontrado (request): {url}")
                 found_streams.append({
                     "url": url,
@@ -91,7 +91,7 @@ async def scan_streams(target_url):
                 
         async def handle_response(res):
             url = res.url
-            if any(x in url for x in ["mono.m3u8"]):
+            if any(x in url for x in [".m3u8",".mp4"]):
                 print(f"⭐ Stream encontrado (response): {url}")
                 found_streams.append({
                     "url": url,
