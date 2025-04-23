@@ -96,7 +96,6 @@ async def scan_streams(target_url):
                 found_streams.append({
                     "url": url,
                     "headers": dict(res.headers),
-                    "content_type": content_type,
                     "source": "response"
                 })
                 event.set()
