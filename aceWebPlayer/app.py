@@ -60,6 +60,9 @@ async def scan_streams(target_url):
         browser = await p.chromium.launch(
             headless=True,
             args=[
+                '--use-fake-ui-for-media-stream',
+                '--no-sandbox',
+                '--use-fake-device-for-media-stream',
                 '--autoplay-policy=no-user-gesture-required',
                 '--window-size=1920,1080',
                 '--disable-features=IsolateOrigins,site-per-process',
