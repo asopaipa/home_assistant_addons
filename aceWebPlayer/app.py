@@ -64,7 +64,7 @@ async def scan_streams(target_url):
             "security.mixed_content.block_active_content": False # ¡PELIGROSO! Solo para diagnóstico
         }
         
-        browser = p.firefox.launch(
+        browser = await p.firefox.launch(
             headless=True,
             firefox_user_prefs=prefs
         )
