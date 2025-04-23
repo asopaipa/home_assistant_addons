@@ -81,7 +81,7 @@ async def scan_streams(target_url):
         async def handle_request(req):
             url = req.url
             if any(x in url for x in [".m3u8",".mp4"]):
-                print(f"⭐ Stream encontrado (request): {url}")
+                print(f"Stream encontrado (request): {url}")
                 found_streams.append({
                     "url": url,
                     "headers": dict(req.headers),
@@ -92,7 +92,7 @@ async def scan_streams(target_url):
         async def handle_response(res):
             url = res.url
             if any(x in url for x in [".m3u8",".mp4"]):
-                print(f"⭐ Stream encontrado (response): {url}")
+                print(f"Stream encontrado (response): {url}")
                 found_streams.append({
                     "url": url,
                     "headers": dict(res.headers),
@@ -420,17 +420,21 @@ def create_stream(stream_url):
 
 
         result = asyncio.run(scan_streams(stream_url))
-        if not result:
+        if not result or not result[0]:
             print("Canal no disponible")
             return "Canal no disponible", 500
         # Se utiliza el primer stream de la lista
         stream_data = result[0]
         stream_url_final = stream_data["url"]
         stream_headers = stream_data["headers"]
+
+        print(f"URL antes de ffmpeg: {stream_url_final}")
     
         # Construir el string de headers para FFmpeg.
         # FFmpeg espera los headers en formato "Clave: Valor\r\n"
         headers_str = "".join(f"{key}: {value}\r\n" for key, value in stream_headers.items())
+
+        print(f"Headers antes de ffmpeg: {headers_str}")
             
         # Generar ID único para este stream
         stream_id = str(uuid.uuid4())
