@@ -92,7 +92,7 @@ async def scan_streams(target_url):
         
         # Lanzar un navegador completo y visible
         browser = await p.chromium.launch(
-            headless=False,  # Navegador visible
+            headless=True,  # Navegador visible
             args=[
                 '--autoplay-policy=no-user-gesture-required',  # Permitir autoplay
                 '--window-size=1920,1080',  # Tamaño de pantalla estándar
