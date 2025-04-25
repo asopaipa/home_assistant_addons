@@ -727,16 +727,16 @@ def index():
             direccion_webs = direccion_webs_bytes.decode("utf-8")
             acestream_server = request.form.get('aceStreamServer', '')
             acestream_protocol = request.form.get('aceStreamProtocol', 'http')
-            save_to_file(direccion, direccion_pelis, direccion_webs, False, acestream_server, acestream_protocol, DATA_FILE)    
+            save_to_file(direccion, direccion_pelis, direccion_webs, False, False, acestream_server, acestream_protocol, DATA_FILE)    
             # Procesar cada línea como una URL
             urls = [direccion]
             urls_pelis = [direccion_pelis]
             urls_webs = [direccion_webs]
             # Usar el servidor Acestream proporcionado o el host por defecto
             host_to_use = acestream_server if acestream_server else request.host
-            generar_m3u_from_url(host_to_use, urls, "directos",FOLDER_RESOURCES, acestream_protocol)
-            generar_m3u_from_url(host_to_use, urls_pelis, "pelis", FOLDER_RESOURCES,acestream_protocol)
-            generar_m3u_from_url(request.host, urls_webs, "webs",FOLDER_RESOURCES,acestream_protocol)
+            generar_m3u_from_url(host_to_use, urls, "directos",FOLDER_RESOURCES, False, acestream_protocol)
+            generar_m3u_from_url(host_to_use, urls_pelis, "pelis", FOLDER_RESOURCES, False, acestream_protocol)
+            generar_m3u_from_url(request.host, urls_webs, "webs",FOLDER_RESOURCES, False, acestream_protocol)
                         
             textarea_content = direccion
             textarea_content_pelis = direccion_pelis
@@ -763,9 +763,9 @@ def index():
             urls_webs = [url.strip() for url in textarea_content_webs.splitlines() if url.strip()]
 
             host_to_use = acestream_server if acestream_server else request.host
-            generar_m3u_from_url(host_to_use, urls, "directos", FOLDER_RESOURCES,acestream_protocol)
-            generar_m3u_from_url(host_to_use, urls_pelis, "pelis",FOLDER_RESOURCES, acestream_protocol)
-            generar_m3u_from_url(host_to_use, urls_webs, "webs", FOLDER_RESOURCES, acestream_protocol)
+            generar_m3u_from_url(host_to_use, urls, "directos", FOLDER_RESOURCES, con_acexy, acestream_protocol)
+            generar_m3u_from_url(host_to_use, urls_pelis, "pelis",FOLDER_RESOURCES, con_acexy, acestream_protocol)
+            generar_m3u_from_url(host_to_use, urls_webs, "webs", FOLDER_RESOURCES, con_acexy, acestream_protocol)
 
     else:
         # Cargar los datos persistidos desde el archivo
