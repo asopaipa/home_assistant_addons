@@ -24,9 +24,9 @@ jobs:
           # Necesitas la URL COMPLETA del repo GitLab correspondiente
           # Ej: https://gitlab.com/TU_USUARIO_GL/NOMBRE_REPO_GL.git
           # Puedes ponerla directamente aquí o mejor, desde un secreto
-          GITLAB_REPO_URL: ${{ secrets.GITLAB_REPO_URL || 'https://gitlab.com/test2494916/autoAce.git' }}
+          GITLAB_REPO_URL: ${{ secrets.GITLAB_REPO_URL || 'https://gitlab.com/test2494916/home_assistant_addons.git' }}
           # Extraer el usuario/grupo y repo de la URL de GitLab para construir la URL con token
-          GITLAB_TARGET_PATH: ${{ secrets.GITLAB_REPO_URL || 'https://gitlab.com/test2494916/autoAce.git' }}
+          GITLAB_TARGET_PATH: ${{ secrets.GITLAB_REPO_URL || 'https://gitlab.com/test2494916/home_assistant_addons.git' }}
 
         run: |
           echo "Configurando Git..."
