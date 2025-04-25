@@ -310,7 +310,7 @@ def load_from_file(file_input):
                 textarea2 = data.get("textarea2", "")
                 textarea3 = data.get("textarea3", "")
                 checkbox = data.get("checkbox", False)
-                con_acexy = data.get("checkbox", False)
+                con_acexy = data.get("con_acexy", False)
                 acestream_server = data.get("acestream_server", "")
                 acestream_protocol = data.get("acestream_protocol", "http")
                 return textarea1, textarea2, textarea3, checkbox, con_acexy, acestream_server, acestream_protocol
