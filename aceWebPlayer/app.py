@@ -55,7 +55,7 @@ def export_iptv(channels, filepath):
         print("No hay datos para exportar")     
         
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> Optional[Tuple[str, Dict[str, str]]]:
