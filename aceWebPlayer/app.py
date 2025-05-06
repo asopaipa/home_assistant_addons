@@ -58,7 +58,7 @@ def export_iptv(channels, filepath):
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-async def detect_m3u8(url: str, timeout: int = 120, headless: bool = True) -> Optional[Tuple[str, Dict[str, str]]]:
+async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> Optional[Tuple[str, Dict[str, str]]]:
     """
     Función asíncrona que detecta si una URL contiene o hace peticiones a archivos m3u8,
     simulando comportamiento humano y asegurando la reproducción de video.
