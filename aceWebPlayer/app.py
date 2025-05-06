@@ -53,184 +53,66 @@ def export_iptv(channels, filepath):
         
 async def scan_streams(target_url):
     found_streams = []
-    event = asyncio.Event()
-    
+    event = asyncio.Event()  # Para señalizar cuando encontremos una coincidencia
+
     async with async_playwright() as p:
-        # Configuración del navegador
-        prefs = {
-            "media.autoplay.default": 0,  # 0=Allowed, 1=Blocked, 2=Prompt
-            "media.autoplay.blocking_policy": 0, # Deshabilitar política de bloqueo adicional
-            "media.autoplay.allow-muted": True, # A menudo necesario incluso con autoplay permitido
-            "security.mixed_content.block_active_content": False # ¡PELIGROSO! Solo para diagnóstico
-        }
-        
-        browser = await p.firefox.launch(
-            headless=True,
-            firefox_user_prefs=prefs
-        )
-        
-        # Configuración del contexto
-        context = await browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            permissions=['geolocation'],
-            #user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
-            ignore_https_errors=True
-        )
-        
-        # Manejo de eventos de red
-        async def handle_request(req):
-            url = req.url
-            if any(x in url for x in [".m3u8",".mp4"]):
-                print(f"Stream encontrado (request): {url}")
-                found_streams.append({
-                    "url": url,
-                    "headers": dict(req.headers),
-                    "source": "request"
-                })
-                event.set()
-                
-        async def handle_response(res):
-            url = res.url
-            if any(x in url for x in [".m3u8",".mp4"]):
-                print(f"Stream encontrado (response): {url}")
-                found_streams.append({
-                    "url": url,
-                    "headers": dict(res.headers),
-                    "source": "response"
-                })
-                event.set()
-        
-        context.on("request", handle_request)
-        context.on("response", handle_response)
-        
-        # Crear página 
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
         page = await context.new_page()
 
-                
-        
-        try:
-            # Navegación inicial
-            await page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
-            print("Página cargada inicialmente")
-            
-            # Esperar carga inicial
-            i=0.1
-            if not found_streams and i > 8:
-                i=i+0.1
-                await asyncio.sleep(0.1)
+        # Captura de requests
+        async def handle_request(req):
+            nonlocal found_streams
+            if found_streams:  # Si ya encontramos uno, ignoramos
+                return
+            url = req.url  
+            if any(x in url for x in ["m3u8", "mp4"]):
+                print(f"Encontrado en request: {url}")
+                found_streams.append({
+                    "url": url,
+                    "headers": dict(req.headers)
+                })
+                event.set()  # Señalamos que encontramos una coincidencia
 
-            if not found_streams:
-                # Inyectar script para eliminar características restrictivas
-                await page.evaluate("""() => {
-                    // Eliminar atributos sandbox
-                    document.querySelectorAll('iframe[sandbox]').forEach(iframe => {
-                        iframe.removeAttribute('sandbox');
-                    });
-                    
-                    // Modificar reproductor de video para autoplay
-                    document.querySelectorAll('video').forEach(video => {
-                        video.autoplay = true;
-                        video.muted = true;  // Los navegadores permiten autoplay si está silenciado
-                        video.play().catch(e => console.log('Error al reproducir:', e));
-                    });
-                    
-                    // Simular interacción de usuario
-                    const simulateUserInteraction = () => {
-                        document.body.click();
-                        document.querySelectorAll('video, [class*="player"], [id*="player"]').forEach(el => {
-                            try {
-                                if (el.play) el.play();
-                                el.click();
-                            } catch(e) {}
-                        });
-                    };
-                    
-                    // Ejecutar ahora y después de un tiempo
-                    simulateUserInteraction();
-                    setTimeout(simulateUserInteraction, 3000);
-                }""")
-            
-            # Simular acciones de usuario
-            await page.mouse.move(500, 500)
-            await page.mouse.down()
-            await page.mouse.up()
-            
-            # Intentar hacer clic en elementos conocidos
-            #for selector in ["video", "[class*='play']", "[id*='player']", "iframe"]:
-            #    elements = await page.query_selector_all(selector)
-            #    for element in elements:
-            #        try:
-            #            await element.scroll_into_view_if_needed()
-            #            await element.click(force=True, timeout=1000)
-            #            await asyncio.sleep(2)
-            #        except Exception:
-            #            pass
-            
-            # Buscar y procesar iframes
-            '''
-            if not found_streams:
-                iframe_handles = await page.query_selector_all('iframe')
-                print(f"Encontrados {len(iframe_handles)} iframes")
-                
-                for idx, iframe in enumerate(iframe_handles):
-                    try:
-                        iframe_src = await iframe.get_attribute('src')
-                        if iframe_src:
-                            print(f"Procesando iframe {idx+1}: {iframe_src}")
-                            
-                            # Intentar acceder al contenido del iframe
-                            frame = await iframe.content_frame()
-                            if frame:
-                                # Intentar reproducir videos dentro del iframe
-                                await frame.evaluate("""() => {
-                                    document.querySelectorAll('video').forEach(v => {
-                                        v.autoplay = true;
-                                        v.muted = true;
-                                        v.play().catch(e => {});
-                                    });
-                                    
-                                    // Clic en elementos potenciales
-                                    ['video', '[class*="play"]', '[id*="player"]'].forEach(selector => {
-                                        document.querySelectorAll(selector).forEach(el => {
-                                            try { el.click(); } catch(e) {}
-                                        });
-                                    });
-                                }""")
-                            else:
-                                # Si no podemos acceder al iframe, intenta abrir en nueva pestaña
-                                if iframe_src.startsWith('http'):
-                                    try:
-                                        iframe_page = await context.new_page()
-                                        await iframe_page.goto(iframe_src, timeout=30000)
-                                        await asyncio.sleep(5)
-                                        await iframe_page.close()
-                                    except Exception as e:
-                                        print(f"Error al abrir iframe en nueva pestaña: {e}")
-                    except Exception as e:
-                        print(f"Error procesando iframe {idx+1}: {e}")
-            '''
-            # Esperar para encontrar streams
-            print("Esperando para encontrar streams (60 segundos)...")
-            try:
-                await asyncio.wait_for(event.wait(), timeout=60)
-                print("¡Stream encontrado!")
-            except asyncio.TimeoutError:
-                print("Timeout sin encontrar streams")
-            
-            # Capturar screenshot y HTML final
-            await page.screenshot(path="screenshot_final.png")
-            final_html = await page.content()
-            with open("web_iptv_final.html", "w", encoding="utf-8") as f:
-                f.write(final_html)
-                
-        except Exception as e:
-            print(f"Error durante la ejecución: {e}")
-            
-        finally:
-            print("Manteniendo navegador abierto por 30 segundos para inspección...")
-            #await asyncio.sleep(30)
-            await browser.close()
-    
+        page.on("request", handle_request)
+
+        # Captura de responses
+        async def handle_response(res):
+            nonlocal found_streams
+            if found_streams:  # Si ya encontramos uno, ignoramos
+                return
+            url = res.url
+            if any(x in url for x in ["m3u8", "mp4"]):
+                print(f"Encontrado en response: {url}")
+                found_streams.append({
+                    "url": url,
+                    "headers": dict(res.headers)
+                })
+                event.set()  # Señalamos que encontramos una coincidencia
+
+        
+
+        page.on("response", handle_response)
+
+        await page.goto(target_url, timeout=60000)
+        # Esperar hasta que se encuentre una coincidencia o hasta el timeout
+        timeout_task = asyncio.create_task(asyncio.sleep(60000/1000))  # Convertimos ms a segundos
+        event_wait_task = asyncio.create_task(event.wait())  # Convertir el coroutine en una tarea
+        
+        await asyncio.wait(
+            [event_wait_task, timeout_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+
+        #print("\nObteniendo el HTML final renderizado...")
+        #final_html = await page.content()
+        #print("--- HTML Final de la Página ---")
+        #print(final_html)
+        #print("--- Fin del HTML ---\n")
+        
+        await browser.close()
+
     return found_streams
 
 def format_url_with_headers(url, headers):
