@@ -21,7 +21,7 @@ import asyncio
 import subprocess
 import uuid
 from urllib.parse import quote
-import async_playwright, Playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright, Playwright, TimeoutError as PlaywrightTimeoutError
 import random
 import logging
 
