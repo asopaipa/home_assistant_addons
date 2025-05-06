@@ -23,7 +23,7 @@ import uuid
 from urllib.parse import quote
 from playwright.async_api import async_playwright
 import random
-
+import logging
 
 
 app = Flask(__name__)
@@ -55,7 +55,10 @@ def export_iptv(channels, filepath):
         print("No hay datos para exportar")     
         
 
-async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> Optional[Tuple[str, Dict[str, str]]]:
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+async def detect_m3u8(url: str, timeout: int = 120, headless: bool = True) -> Optional[Tuple[str, Dict[str, str]]]:
     """
     Función asíncrona que detecta si una URL contiene o hace peticiones a archivos m3u8,
     simulando comportamiento humano y asegurando la reproducción de video.
@@ -68,7 +71,7 @@ async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> O
     Returns:
         Tupla con (url_del_m3u8, cabeceras) si se encuentra, None si no se encuentra
     """
-    print(f"Iniciando detección de M3U8 en: {url}")
+    logger.info(f"Iniciando detección de M3U8 en: {url}")
     
     async with async_playwright() as p:
         # Configurar navegador con agente de usuario realista
@@ -136,7 +139,7 @@ async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> O
             if '.m3u8' in url or re.search(r'm3u8', url, re.IGNORECASE):
                 headers = request.headers
                 found_m3u8 = (url, dict(headers))
-                print(f"M3U8 detectado en solicitud: {url}")
+                logger.info(f"M3U8 detectado en solicitud: {url}")
                 m3u8_event.set()
         
         async def handle_response(response):
@@ -152,7 +155,7 @@ async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> O
                 'application/vnd.apple.mpegurl' in content_type.lower()):
                 headers = response.request.headers
                 found_m3u8 = (url, dict(headers))
-                print(f"M3U8 detectado en respuesta: {url}")
+                logger.info(f"M3U8 detectado en respuesta: {url}")
                 m3u8_event.set()
         
         # Configurar interceptores de eventos
@@ -164,7 +167,7 @@ async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> O
             page.on('dialog', lambda dialog: asyncio.create_task(dialog.accept()))
             
             # Navegar a la URL con tiempos de espera y comportamiento humano
-            print(f"Navegando a: {url}")
+            logger.info(f"Navegando a: {url}")
             await page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
             
             # Simular comportamiento humano
@@ -175,10 +178,10 @@ async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> O
             
             # Esperar a que se encuentre un m3u8 o hasta que se agote el tiempo
             try:
-                print("Esperando detección de M3U8...")
+                logger.info("Esperando detección de M3U8...")
                 await asyncio.wait_for(m3u8_event.wait(), timeout=timeout)
             except asyncio.TimeoutError:
-                print("Tiempo de espera agotado, no se detectó M3U8")
+                logger.warning("Tiempo de espera agotado, no se detectó M3U8")
                 
                 # Intentar una última vez con acciones más agresivas
                 await force_video_playback(page)
@@ -187,18 +190,18 @@ async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> O
                 try:
                     await asyncio.wait_for(m3u8_event.wait(), timeout=15)
                 except asyncio.TimeoutError:
-                    print("No se detectó M3U8 después de intentos adicionales")
+                    logger.warning("No se detectó M3U8 después de intentos adicionales")
             
         except Exception as e:
-            print(f"Error durante la navegación: {e}")
+            logger.error(f"Error durante la navegación: {e}")
         finally:
-            print("Cerrando navegador")
+            logger.info("Cerrando navegador")
             await browser.close()
         
         if found_m3u8:
-            print(f"M3U8 encontrado: {found_m3u8[0]}")
+            logger.info(f"M3U8 encontrado: {found_m3u8[0]}")
         else:
-            print("No se encontró ningún M3U8")
+            logger.info("No se encontró ningún M3U8")
             
         return found_m3u8
 
@@ -223,7 +226,7 @@ async def human_like_browsing(page):
 
 async def find_and_click_play_button(page):
     """Busca y hace clic en botones de reproducción de video"""
-    print("Buscando botones de reproducción")
+    logger.info("Buscando botones de reproducción")
     
     # Lista de selectores para botones y áreas de reproducción comunes
     play_selectors = [
@@ -254,15 +257,15 @@ async def find_and_click_play_button(page):
         try:
             elements = await page.query_selector_all(selector)
             if elements:
-                print(f"Encontrado posible elemento de reproducción: {selector}")
+                logger.info(f"Encontrado posible elemento de reproducción: {selector}")
                 for element in elements:
                     try:
                         # Hacer clic en el centro del elemento
                         await element.click(force=True)
-                        print(f"Clic realizado en: {selector}")
+                        logger.info(f"Clic realizado en: {selector}")
                         await asyncio.sleep(2)  # Esperar a que se inicie la reproducción
                     except Exception as e:
-                        print(f"No se pudo hacer clic en {selector}: {e}")
+                        logger.debug(f"No se pudo hacer clic en {selector}: {e}")
         except Exception:
             pass
     
@@ -272,14 +275,14 @@ async def find_and_click_play_button(page):
         center_x = viewport_size['width'] // 2
         center_y = viewport_size['height'] // 2
         await page.mouse.click(center_x, center_y)
-        print("Clic realizado en el centro de la página")
+        logger.info("Clic realizado en el centro de la página")
         await asyncio.sleep(2)
     except Exception as e:
-        print(f"Error al hacer clic en el centro: {e}")
+        logger.debug(f"Error al hacer clic en el centro: {e}")
 
 async def force_video_playback(page):
     """Intenta forzar la reproducción de videos con JavaScript"""
-    print("Intentando forzar reproducción de videos")
+    logger.info("Intentando forzar reproducción de videos")
     
     # Intentar reproducir todos los elementos de video y audio
     await page.evaluate("""() => {
@@ -360,6 +363,7 @@ async def force_video_playback(page):
             pass
     
     await asyncio.sleep(5)  # Esperar a que se procesen las acciones
+
 
 
 def format_url_with_headers(url, headers):
