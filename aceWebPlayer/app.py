@@ -24,7 +24,7 @@ from urllib.parse import quote
 from playwright.async_api import async_playwright, Playwright, TimeoutError as PlaywrightTimeoutError
 import random
 import logging
-
+import inspect # <--- AÑADIR ESTA IMPORTACIÓN
 
 app = Flask(__name__)
 
@@ -100,21 +100,19 @@ async def scan_streams(target_url: str,
     logger.info(f"Iniciando búsqueda de M3U8 para: {target_url}")
 
     m3u8_found_event = asyncio.Event()
-    # Usamos una lista para poder modificarla desde las funciones anidadas
-    # result_data[0] = m3u8_url, result_data[1] = headers
     result_data = [None, None] 
 
     async def _process_m3u8_found(m3u8_url: str, headers: dict):
-        if not result_data[0]: # Solo procesar la primera encontrada
+        if not result_data[0]: 
             logger.info(f"¡M3U8 ENCONTRADO!: {m3u8_url}")
             logger.debug(f"Cabeceras de la petición asociada: {headers}")
             result_data[0] = m3u8_url
             result_data[1] = headers
-            m3u8_found_event.set() # Señalizar que se encontró
+            m3u8_found_event.set()
 
     async def handle_request(request):
         if m3u8_found_event.is_set():
-            return # Ya se encontró, no procesar más
+            return
 
         req_url_lower = request.url.lower()
         if ".m3u8" in req_url_lower:
@@ -123,10 +121,27 @@ async def scan_streams(target_url: str,
 
     async def handle_response(response):
         if m3u8_found_event.is_set():
-            return # Ya se encontró, no procesar más
+            return
 
         res_url_lower = response.url.lower()
-        content_type = response.header_value("content-type") or ""
+        
+        # --- MODIFICACIÓN PARA MANEJAR 'content_type' ---
+        # Obtener el valor de la cabecera. El error sugiere que podría ser una corrutina.
+        _header_value_result = response.header_value("content-type")
+
+        _raw_content_type = None
+        # Comprobar si el resultado es 'awaitable' (una corrutina)
+        if inspect.isawaitable(_header_value_result):
+            # Si es awaitable, debemos hacer await para obtener el valor real.
+            # Esto puede ser útil si alguna versión/configuración de Playwright devuelve una corrutina aquí.
+            logger.debug(f"response.header_value('content-type') para {response.url} es awaitable. Awaiting...")
+            _raw_content_type = await _header_value_result
+        else:
+            # Si no es awaitable, usar el valor directamente (comportamiento esperado por documentación estándar)
+            _raw_content_type = _header_value_result
+        
+        content_type = _raw_content_type or ""
+        # --- FIN DE LA MODIFICACIÓN ---
         
         logger.debug(f"Respuesta recibida de: {response.url} (Status: {response.status}, Tipo: {content_type})")
 
@@ -137,6 +152,7 @@ async def scan_streams(target_url: str,
             return
 
         # 2. Comprobar si el tipo de contenido es directamente M3U8
+        # Ahora content_type debería ser un string, por lo que .lower() funcionará.
         if any(m3u8_ct in content_type.lower() for m3u8_ct in ["mpegurl", "vnd.apple.mpegurl"]):
             logger.debug(f"M3U8 detectado por content-type: {response.url}")
             await _process_m3u8_found(response.url, response.request.headers)
@@ -146,25 +162,20 @@ async def scan_streams(target_url: str,
         is_text_content = any(ct in content_type.lower() for ct in TEXT_CONTENT_TYPES)
         if is_text_content:
             try:
-                body = await response.text()
-                # logger.debug(f"Cuerpo de {response.url} (parcial): {body[:500]}") # Cuidado con logs grandes
+                body = await response.text() # response.text() es correctamente 'async'
                 
-                # Buscar con regex
                 matches = M3U8_REGEX.findall(body)
                 if matches:
                     for m3u8_url_in_body in matches:
                         logger.debug(f"M3U8 encontrado en cuerpo de {response.url}: {m3u8_url_in_body}")
                         await _process_m3u8_found(m3u8_url_in_body, response.request.headers)
-                        if m3u8_found_event.is_set(): return # Salir si ya se encontró
+                        if m3u8_found_event.is_set(): return 
                 
-                # Búsqueda simple si regex falla o por si acaso (menos precisa)
-                elif ".m3u8" in body.lower():
-                    logger.warning(f"Se encontró '.m3u8' en el cuerpo de {response.url}, pero no una URL completa con regex. Esto podría ser un falso positivo o una URL relativa.")
-                    # Podrías intentar construir URLs relativas aquí si fuera necesario
-                    # Por ahora, no lo hacemos para evitar complejidad y falsos positivos.
-
+                elif ".m3u8" in body.lower(): # Búsqueda simple adicional
+                    logger.warning(f"Se encontró '.m3u8' en el cuerpo de {response.url} (búsqueda simple), pero no una URL completa con regex.")
             except Exception as e:
-                logger.warning(f"No se pudo leer el cuerpo de la respuesta de {response.url}: {e}")
+                # A veces response.text() puede fallar para ciertos tipos de contenido o respuestas dañadas
+                logger.warning(f"No se pudo leer el cuerpo de la respuesta de {response.url} (content-type: {content_type}): {e}")
 
     async with async_playwright() as p:
         browser = None
@@ -172,80 +183,62 @@ async def scan_streams(target_url: str,
         page = None
         try:
             logger.info("Lanzando navegador Chromium...")
-            browser = await p.chromium.launch(headless=True) # Poner False para depurar visualmente
+            browser = await p.chromium.launch(headless=True) 
             
             logger.info("Creando nuevo contexto de navegador...")
             context = await browser.new_context(
                 user_agent=USER_AGENT,
-                viewport={"width": 1280, "height": 720}, # Simular un tamaño de pantalla común
+                viewport={"width": 1280, "height": 720},
                 java_script_enabled=True,
-                # Podrías añadir aquí configuraciones de proxy si es necesario
             )
-            # context.set_default_navigation_timeout(page_load_timeout) # Timeout para navegación
-            context.set_default_timeout(page_load_timeout) # Timeout general para acciones
+            context.set_default_timeout(page_load_timeout) 
 
             logger.info("Creando nueva página...")
             page = await context.new_page()
 
-            # Registrar manejadores de eventos
             page.on("request", handle_request)
             page.on("response", handle_response)
 
             logger.info(f"Navegando a {target_url}...")
             try:
-                # 'networkidle' espera a que no haya actividad de red por 500ms.
-                # 'domcontentloaded' es más rápido, pero podría no ejecutar todo el JS.
-                # 'load' espera al evento load.
-                # 'commit' espera a que la respuesta inicial sea recibida.
                 await page.goto(target_url, wait_until="networkidle", timeout=page_load_timeout)
-                logger.info(f"Navegación a {target_url} completada (o timeout).")
+                logger.info(f"Navegación a {target_url} completada (o timeout de carga inicial).")
             except PlaywrightTimeoutError:
-                logger.warning(f"Timeout durante page.goto({target_url}). Se continuará buscando M3U8 si algo ya se cargó.")
+                logger.warning(f"Timeout durante page.goto({target_url}). Se continuará buscando M3U8 con lo que se haya cargado.")
             except Exception as e:
-                logger.error(f"Error durante page.goto({target_url}): {e}", exc_info=True)
-                # Si page.goto falla catastróficamente, es poco probable que encontremos M3U8
-                # pero los handlers ya podrían haber capturado algo si la navegación empezó.
+                logger.error(f"Error crítico durante page.goto({target_url}): {e}", exc_info=False) # exc_info=True para más detalle
+                # Continuar por si algo se capturó antes del error completo
 
             if not m3u8_found_event.is_set():
-                # Simular un poco de interacción humana y dar tiempo a JS adicional
                 logger.info("Realizando scroll y esperando un poco más por actividad de red/JS...")
                 try:
-                    await page.evaluate("window.scrollBy(0, window.innerHeight / 2)")
-                    await asyncio.sleep(1) # Pequeña pausa
-                    await page.evaluate("window.scrollBy(0, window.innerHeight)")
-                    await asyncio.sleep(2) # Pausa un poco más larga
+                    await page.evaluate("window.scrollBy(0, Math.min(500, window.innerHeight / 2))") # Scroll más pequeño y seguro
+                    await asyncio.sleep(1) 
+                    await page.evaluate("window.scrollBy(0, Math.min(1000, window.innerHeight))") # Scroll más pequeño y seguro
+                    await asyncio.sleep(2) 
                 except Exception as e:
                     logger.warning(f"Error durante scroll/sleep post-carga: {e}")
             
             if not m3u8_found_event.is_set():
-                logger.info(f"Esperando hasta {m3u8_wait_timeout}s para que se detecte un M3U8...")
+                logger.info(f"Esperando hasta {m3u8_wait_timeout}s adicionales para que se detecte un M3U8...")
                 try:
                     await asyncio.wait_for(m3u8_found_event.wait(), timeout=m3u8_wait_timeout)
                 except asyncio.TimeoutError:
-                    logger.warning(f"Timeout esperando el evento M3U8 para {target_url} después de la carga y esperas.")
+                    logger.info(f"Timeout final esperando el evento M3U8 para {target_url}.")
             
         except Exception as e:
             logger.error(f"Error general en la operación de Playwright para {target_url}: {e}", exc_info=True)
         finally:
             logger.info("Cerrando recursos de Playwright...")
-            if page:
-                try:
-                    await page.close()
-                    logger.debug("Página cerrada.")
-                except Exception as e:
-                    logger.error(f"Error al cerrar la página: {e}")
+            if page and not page.is_closed():
+                try: await page.close(); logger.debug("Página cerrada.")
+                except Exception as e: logger.error(f"Error al cerrar la página: {e}")
             if context:
-                try:
-                    await context.close()
-                    logger.debug("Contexto cerrado.")
-                except Exception as e:
-                    logger.error(f"Error al cerrar el contexto: {e}")
+                try: await context.close(); logger.debug("Contexto cerrado.")
+                except Exception as e: logger.error(f"Error al cerrar el contexto: {e}")
             if browser:
-                try:
-                    await browser.close()
-                    logger.debug("Navegador cerrado.")
-                except Exception as e:
-                    logger.error(f"Error al cerrar el navegador: {e}")
+                try: await browser.close(); logger.debug("Navegador cerrado.")
+                except Exception as e: logger.error(f"Error al cerrar el navegador: {e}")
 
     if result_data[0]:
         logger.info(f"Búsqueda finalizada. M3U8 encontrado para {target_url}: {result_data[0]}")
