@@ -22,6 +22,8 @@ import subprocess
 import uuid
 from urllib.parse import quote
 from playwright.async_api import async_playwright
+import random
+
 
 
 app = Flask(__name__)
@@ -50,55 +52,107 @@ def export_iptv(channels, filepath):
                 
 
     else:
-        logger.warning("No hay datos para exportar")     
+        print("No hay datos para exportar")     
         
-async def scan_streams(url: str, timeout: int = 60) -> Optional[Tuple[str, Dict[str, str]]]:
+
+async def scan_streams(url: str, timeout: int = 120, headless: bool = True) -> Optional[Tuple[str, Dict[str, str]]]:
     """
-    Función asíncrona que detecta si una URL contiene o hace peticiones a archivos m3u8.
+    Función asíncrona que detecta si una URL contiene o hace peticiones a archivos m3u8,
+    simulando comportamiento humano y asegurando la reproducción de video.
     
     Args:
         url: URL a analizar, puede contener JavaScript, iframes, etc.
-        timeout: Tiempo máximo de espera en segundos (por defecto: 60)
+        timeout: Tiempo máximo de espera en segundos (por defecto: 120)
+        headless: Modo headless del navegador (False para depuración visual)
         
     Returns:
         Tupla con (url_del_m3u8, cabeceras) si se encuentra, None si no se encuentra
     """
+    print(f"Iniciando detección de M3U8 en: {url}")
+    
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        context = await browser.new_context()
+        # Configurar navegador con agente de usuario realista
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36 Edg/96.0.1054.29",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36"
+        ]
+        
+        #browser_types = [p.chromium, p.firefox, p.webkit]
+        #browser_type = random.choice(browser_types)
+        
+        browser = await p.chromium.launch(headless=headless)
+        
+        # Crear contexto con configuraciones realistas
+        context = await browser.new_context(
+            user_agent=random.choice(user_agents),
+            viewport={"width": 1920, "height": 1080},
+            has_touch=False,
+            locale="es-ES",
+            timezone_id="Europe/Madrid",
+            geolocation={"latitude": 40.416775, "longitude": -3.703790},
+            permissions=["geolocation", "notifications", "camera", "microphone"],
+            color_scheme="no-preference"
+        )
+        
+        # Emular comportamiento humano al navegar 
+        await context.add_cookies([{"name": "cookieconsent", "value": "accepted", "domain": url.split("/")[2], "path": "/"}])
+        await context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => false,
+            });
+        """)
+        
+        # Configurar detector de huellas digitales falsas
+        await context.add_init_script("""
+            // Ocultar características de automatización
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                Promise.resolve({state: Notification.permission}) :
+                originalQuery(parameters)
+            );
+            
+            // Simular comportamiento humano en Canvas
+            const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+            CanvasRenderingContext2D.prototype.getImageData = function (x, y, w, h) {
+                const imageData = originalGetImageData.call(this, x, y, w, h);
+                return imageData;
+            };
+        """)
+        
         page = await context.new_page()
         
         # Lista para almacenar las solicitudes m3u8 encontradas
         found_m3u8 = None
         m3u8_event = asyncio.Event()
         
-        # Interceptar todas las solicitudes
+        # Interceptar todas las solicitudes y respuestas
         async def handle_request(request):
             nonlocal found_m3u8
             
-            # Verificar si la URL contiene .m3u8 o el tipo de contenido es application/x-mpegURL
             url = request.url
             if '.m3u8' in url or re.search(r'm3u8', url, re.IGNORECASE):
                 headers = request.headers
-                print(f"Request encontrado: {url}")
                 found_m3u8 = (url, dict(headers))
+                print(f"M3U8 detectado en solicitud: {url}")
                 m3u8_event.set()
         
-        # Interceptar todas las respuestas
         async def handle_response(response):
             nonlocal found_m3u8
             
             url = response.url
             content_type = response.headers.get('content-type', '')
             
-            # Verificar si la URL contiene .m3u8 o el tipo de contenido es de streaming
             if ('.m3u8' in url or 
                 re.search(r'm3u8', url, re.IGNORECASE) or 
                 'application/x-mpegURL' in content_type or 
-                'application/vnd.apple.mpegurl' in content_type):
+                'application/vnd.apple.mpegurl' in content_type or
+                'application/vnd.apple.mpegurl' in content_type.lower()):
                 headers = response.request.headers
-                print(f"Response encontrado: {url}")
                 found_m3u8 = (url, dict(headers))
+                print(f"M3U8 detectado en respuesta: {url}")
                 m3u8_event.set()
         
         # Configurar interceptores de eventos
@@ -106,23 +160,207 @@ async def scan_streams(url: str, timeout: int = 60) -> Optional[Tuple[str, Dict[
         page.on('response', handle_response)
         
         try:
-            # Navegar a la URL
-            await page.goto(url, wait_until='networkidle', timeout=timeout * 1000)
+            # Configurar manejo de diálogos automático
+            page.on('dialog', lambda dialog: asyncio.create_task(dialog.accept()))
             
-            # Esperar un tiempo para que se carguen scripts y se inicien reproducciones automáticas
+            # Navegar a la URL con tiempos de espera y comportamiento humano
+            print(f"Navegando a: {url}")
+            await page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
+            
+            # Simular comportamiento humano
+            await human_like_browsing(page)
+            
+            # Buscar y hacer clic en botones de reproducción
+            await find_and_click_play_button(page)
+            
+            # Esperar a que se encuentre un m3u8 o hasta que se agote el tiempo
             try:
-                # Esperar a que se encuentre un m3u8 o hasta que se agote el tiempo
+                print("Esperando detección de M3U8...")
                 await asyncio.wait_for(m3u8_event.wait(), timeout=timeout)
             except asyncio.TimeoutError:
-                # No se encontró ningún m3u8 en el tiempo especificado
-                pass
+                print("Tiempo de espera agotado, no se detectó M3U8")
+                
+                # Intentar una última vez con acciones más agresivas
+                await force_video_playback(page)
+                
+                # Dar una última oportunidad
+                try:
+                    await asyncio.wait_for(m3u8_event.wait(), timeout=15)
+                except asyncio.TimeoutError:
+                    print("No se detectó M3U8 después de intentos adicionales")
             
         except Exception as e:
             print(f"Error durante la navegación: {e}")
         finally:
+            print("Cerrando navegador")
             await browser.close()
         
+        if found_m3u8:
+            print(f"M3U8 encontrado: {found_m3u8[0]}")
+        else:
+            print("No se encontró ningún M3U8")
+            
         return found_m3u8
+
+async def human_like_browsing(page):
+    """Simula comportamiento de navegación humano"""
+    # Mover el ratón aleatoriamente
+    for _ in range(3):
+        x = random.randint(100, 800)
+        y = random.randint(100, 600)
+        await page.mouse.move(x, y, steps=25)
+        await asyncio.sleep(random.uniform(0.5, 1.5))
+    
+    # Scroll aleatorio
+    await page.mouse.wheel(0, random.randint(300, 700))
+    await asyncio.sleep(random.uniform(1, 2))
+    
+    # Esperar que la página se cargue completamente
+    await page.wait_for_load_state('networkidle')
+    
+    # Esperar un poco más por si hay cargas asíncronas
+    await asyncio.sleep(random.uniform(2, 4))
+
+async def find_and_click_play_button(page):
+    """Busca y hace clic en botones de reproducción de video"""
+    print("Buscando botones de reproducción")
+    
+    # Lista de selectores para botones y áreas de reproducción comunes
+    play_selectors = [
+        'button[aria-label*="play" i]',
+        'button[aria-label*="reproducir" i]',
+        'button[title*="play" i]',
+        'button[title*="reproducir" i]',
+        '.play-button',
+        '.ytp-play-button',
+        '.vjs-play-button',
+        '.jwplayer .jw-icon-play',
+        '.plyr__control--play',
+        'video',
+        'iframe[src*="youtube"]',
+        'iframe[src*="vimeo"]',
+        'iframe[src*="player"]',
+        'iframe[src*="embed"]',
+        '.video-player',
+        '.player',
+        '[class*="player"]',
+        '[class*="video"]',
+        '[id*="player"]',
+        '[id*="video"]'
+    ]
+    
+    # Intentar hacer clic en cualquier botón de reproducción encontrado
+    for selector in play_selectors:
+        try:
+            elements = await page.query_selector_all(selector)
+            if elements:
+                print(f"Encontrado posible elemento de reproducción: {selector}")
+                for element in elements:
+                    try:
+                        # Hacer clic en el centro del elemento
+                        await element.click(force=True)
+                        print(f"Clic realizado en: {selector}")
+                        await asyncio.sleep(2)  # Esperar a que se inicie la reproducción
+                    except Exception as e:
+                        print(f"No se pudo hacer clic en {selector}: {e}")
+        except Exception:
+            pass
+    
+    # Intentar hacer clic en el centro de la página (muchos reproductores inician con clic)
+    try:
+        viewport_size = await page.evaluate('() => { return {width: window.innerWidth, height: window.innerHeight} }')
+        center_x = viewport_size['width'] // 2
+        center_y = viewport_size['height'] // 2
+        await page.mouse.click(center_x, center_y)
+        print("Clic realizado en el centro de la página")
+        await asyncio.sleep(2)
+    except Exception as e:
+        print(f"Error al hacer clic en el centro: {e}")
+
+async def force_video_playback(page):
+    """Intenta forzar la reproducción de videos con JavaScript"""
+    print("Intentando forzar reproducción de videos")
+    
+    # Intentar reproducir todos los elementos de video y audio
+    await page.evaluate("""() => {
+        // Reproducir todos los elementos de video
+        document.querySelectorAll('video').forEach(video => {
+            try {
+                if (video.paused) {
+                    video.play().catch(e => console.error('Error al reproducir video:', e));
+                    console.log('Intentando reproducir video');
+                }
+            } catch(e) {}
+        });
+        
+        // Reproducir todos los elementos de audio
+        document.querySelectorAll('audio').forEach(audio => {
+            try {
+                if (audio.paused) {
+                    audio.play().catch(e => {});
+                }
+            } catch(e) {}
+        });
+        
+        // Buscar y ejecutar funciones de reproducción comunes
+        ['play', 'playVideo', 'startPlayback', 'start'].forEach(funcName => {
+            try {
+                if (typeof window[funcName] === 'function') {
+                    window[funcName]();
+                }
+            } catch(e) {}
+        });
+        
+        // Intentar reproducir desde players conocidos
+        try {
+            if (window.jwplayer && typeof window.jwplayer().play === 'function') {
+                window.jwplayer().play();
+            }
+        } catch(e) {}
+        
+        try {
+            if (window.videojs) {
+                document.querySelectorAll('.video-js').forEach(el => {
+                    try {
+                        videojs(el.id).play();
+                    } catch(e) {}
+                });
+            }
+        } catch(e) {}
+        
+        try {
+            if (window.Hls) {
+                // Intentar detectar configuraciones de HLS
+                console.log('HLS detectado', window.Hls);
+            }
+        } catch(e) {}
+        
+        // Intentar activar eventos de reproducción
+        ['play', 'playing', 'loadeddata'].forEach(eventName => {
+            document.querySelectorAll('video').forEach(video => {
+                try {
+                    video.dispatchEvent(new Event(eventName));
+                } catch(e) {}
+            });
+        });
+    }""")
+    
+    # Recorrer todos los iframes y aplicar la misma lógica
+    frames = page.frames
+    for frame in frames:
+        try:
+            await frame.evaluate("""() => {
+                document.querySelectorAll('video').forEach(video => {
+                    try { 
+                        video.play().catch(e => {}); 
+                    } catch(e) {}
+                });
+            }""")
+        except Exception:
+            pass
+    
+    await asyncio.sleep(5)  # Esperar a que se procesen las acciones
+
 
 def format_url_with_headers(url, headers):
     """
