@@ -1,5 +1,5 @@
 #FROM python:3.11-slim
-FROM mcr.microsoft.com/playwright/python:v1.51.0-noble
+FROM mcr.microsoft.com/playwright/python:latest
 
 VOLUME [ "/share" ]
 
