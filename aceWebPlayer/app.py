@@ -21,7 +21,7 @@ import asyncio
 import subprocess
 import uuid
 from urllib.parse import quote
-from playwright.async_api import async_playwright
+import async_playwright, Playwright, TimeoutError as PlaywrightTimeoutError
 import random
 import logging
 
@@ -53,747 +53,208 @@ def export_iptv(channels, filepath):
 
     else:
         print("No hay datos para exportar")     
-        
-# Configurar logging más detallado
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+
+# Configuración básica de logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(module)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
-async def scan_streams(url: str, timeout: int = 180, headless: bool = True, save_har: bool = True, debug_dir: str = "./debug") -> Optional[Tuple[str, Dict[str, str]]]:
+# User agent común para simular un navegador real
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"
+
+# Regex para encontrar URLs M3U8 completas en texto
+M3U8_REGEX = re.compile(r'(https?://[^\s"\'`<>#?]+\.m3u8(?:[^\s"\'`<>#]*)?)', re.IGNORECASE)
+
+# Tipos de contenido que podrían contener M3U8 o ser M3U8
+TEXT_CONTENT_TYPES = [
+    "text/html",
+    "application/javascript",
+    "application/x-javascript",
+    "text/javascript",
+    "application/json",
+    "application/vnd.apple.mpegurl", # M3U8
+    "application/x-mpegurl",        # M3U8
+    "audio/mpegurl",                # M3U8
+]
+
+async def scan_streams(target_url: str, 
+                            page_load_timeout: int = 60_000, # 60 segundos para carga de página
+                            m3u8_wait_timeout: int = 30 # 30 segundos adicionales para buscar m3u8 después de carga
+                           ) -> tuple[str | None, dict | None]:
     """
-    Función asíncrona avanzada que detecta peticiones a archivos m3u8 usando múltiples técnicas.
-    
+    Navega a una URL usando Playwright y busca una URL M3U8 en las peticiones o respuestas.
+
     Args:
-        url: URL a analizar
-        timeout: Tiempo máximo de espera en segundos (por defecto: 180)
-        headless: Modo headless del navegador (False para depuración visual)
-        save_har: Guardar archivo HAR con todas las peticiones (para debug)
-        debug_dir: Directorio para guardar archivos de depuración
-        
+        target_url: La URL principal a visitar.
+        page_load_timeout: Tiempo máximo en ms para que la página cargue.
+        m3u8_wait_timeout: Tiempo máximo en segundos para esperar un M3U8 después de que la página intente cargar.
+
     Returns:
-        Tupla con (url_del_m3u8, cabeceras) si se encuentra, None si no se encuentra
+        Una tupla (m3u8_url, request_headers) si se encuentra, o (None, None) si no.
     """
-    logger.info(f"🔍 Iniciando detección avanzada de M3U8 en: {url}")
-    
-    # Crear directorio de debug si es necesario
-    if save_har and not os.path.exists(debug_dir):
-        os.makedirs(debug_dir)
-    
-    # Almacenar todas las URLs detectadas para análisis posterior
-    all_requests = []
-    all_responses = []
-    potential_m3u8_urls = []
-    
+    logger.info(f"Iniciando búsqueda de M3U8 para: {target_url}")
+
+    m3u8_found_event = asyncio.Event()
+    # Usamos una lista para poder modificarla desde las funciones anidadas
+    # result_data[0] = m3u8_url, result_data[1] = headers
+    result_data = [None, None] 
+
+    async def _process_m3u8_found(m3u8_url: str, headers: dict):
+        if not result_data[0]: # Solo procesar la primera encontrada
+            logger.info(f"¡M3U8 ENCONTRADO!: {m3u8_url}")
+            logger.debug(f"Cabeceras de la petición asociada: {headers}")
+            result_data[0] = m3u8_url
+            result_data[1] = headers
+            m3u8_found_event.set() # Señalizar que se encontró
+
+    async def handle_request(request):
+        if m3u8_found_event.is_set():
+            return # Ya se encontró, no procesar más
+
+        req_url_lower = request.url.lower()
+        if ".m3u8" in req_url_lower:
+            logger.debug(f"Posible M3U8 en URL de petición: {request.url}")
+            await _process_m3u8_found(request.url, request.headers)
+
+    async def handle_response(response):
+        if m3u8_found_event.is_set():
+            return # Ya se encontró, no procesar más
+
+        res_url_lower = response.url.lower()
+        content_type = response.header_value("content-type") or ""
+        
+        logger.debug(f"Respuesta recibida de: {response.url} (Status: {response.status}, Tipo: {content_type})")
+
+        # 1. Comprobar URL de la respuesta
+        if ".m3u8" in res_url_lower:
+            logger.debug(f"Posible M3U8 en URL de respuesta: {response.url}")
+            await _process_m3u8_found(response.url, response.request.headers)
+            return
+
+        # 2. Comprobar si el tipo de contenido es directamente M3U8
+        if any(m3u8_ct in content_type.lower() for m3u8_ct in ["mpegurl", "vnd.apple.mpegurl"]):
+            logger.debug(f"M3U8 detectado por content-type: {response.url}")
+            await _process_m3u8_found(response.url, response.request.headers)
+            return
+
+        # 3. Comprobar contenido del cuerpo si es un tipo de texto relevante
+        is_text_content = any(ct in content_type.lower() for ct in TEXT_CONTENT_TYPES)
+        if is_text_content:
+            try:
+                body = await response.text()
+                # logger.debug(f"Cuerpo de {response.url} (parcial): {body[:500]}") # Cuidado con logs grandes
+                
+                # Buscar con regex
+                matches = M3U8_REGEX.findall(body)
+                if matches:
+                    for m3u8_url_in_body in matches:
+                        logger.debug(f"M3U8 encontrado en cuerpo de {response.url}: {m3u8_url_in_body}")
+                        await _process_m3u8_found(m3u8_url_in_body, response.request.headers)
+                        if m3u8_found_event.is_set(): return # Salir si ya se encontró
+                
+                # Búsqueda simple si regex falla o por si acaso (menos precisa)
+                elif ".m3u8" in body.lower():
+                    logger.warning(f"Se encontró '.m3u8' en el cuerpo de {response.url}, pero no una URL completa con regex. Esto podría ser un falso positivo o una URL relativa.")
+                    # Podrías intentar construir URLs relativas aquí si fuera necesario
+                    # Por ahora, no lo hacemos para evitar complejidad y falsos positivos.
+
+            except Exception as e:
+                logger.warning(f"No se pudo leer el cuerpo de la respuesta de {response.url}: {e}")
+
     async with async_playwright() as p:
-        # Configuración avanzada del navegador
-        user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-        ]
-        
-        # Usar principalmente Chromium para mejor compatibilidad
-        browser = await p.chromium.launch(
-            headless=headless,
-            args=[
-                '--autoplay-policy=no-user-gesture-required',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins',
-                '--disable-site-isolation-trials',
-                '--disable-features=BlockInsecurePrivateNetworkRequests',
-                '--allow-running-insecure-content',
-                '--disable-blink-features=AutomationControlled'
-            ]
-        )
-        
-        # Crear contexto con configuraciones realistas
-        user_agent = random.choice(user_agents)
-        context = await browser.new_context(
-            user_agent=user_agent,
-            viewport={"width": 1920, "height": 1080},
-            has_touch=True,
-            locale="es-ES",
-            timezone_id="Europe/Madrid",
-            geolocation={"latitude": 40.416775, "longitude": -3.703790},
-            permissions=["geolocation", "midi", "notifications", "camera", "microphone", "background-sync", 
-                         "accelerometer", "gyroscope", "magnetometer", "ambient-light-sensor", 
-                         "accessibility-events", "clipboard-read", "clipboard-write", "payment-handler"],
-            ignore_https_errors=True,
-            bypass_csp=True,
-            extra_http_headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none",
-                "Sec-Fetch-User": "?1",
-                "Upgrade-Insecure-Requests": "1",
-                "DNT": "1"
-            }
-        )
-        
-        if save_har:
-            await context.tracing.start(screenshots=True, snapshots=True)
-            
-        # Configurar comportamiento anti-detección
-        await context.add_init_script("""
-            // Anti-detección básica
-            Object.defineProperty(navigator, 'webdriver', { get: () => false });
-            
-            // Eliminar artefactos de automatización
-            if (window.navigator.plugins) {
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [
-                        { description: "Portable Document Format", filename: "internal-pdf-viewer", name: "Chrome PDF Plugin", length: 1 },
-                        { description: "", filename: "chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/pdf-viewer.html", name: "Chrome PDF Viewer", length: 1 },
-                        { description: "", filename: "internal-nacl-plugin", name: "Native Client", length: 0 }
-                    ]
-                });
-            }
-            
-            // Falsear características de navegación
-            const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
-            CanvasRenderingContext2D.prototype.getImageData = function(x, y, w, h) {
-                const imageData = originalGetImageData.call(this, x, y, w, h);
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    // Introducir pequeñas variaciones para falsear la toma de huellas
-                    if (Math.random() < 0.01) imageData.data[i] = (imageData.data[i] + 1) % 256;
-                }
-                return imageData;
-            };
-            
-            // Audio fingerprinting
-            const audioContext = window.AudioContext || window.webkitAudioContext;
-            if (audioContext) {
-                const originalGetChannelData = AudioBuffer.prototype.getChannelData;
-                AudioBuffer.prototype.getChannelData = function() {
-                    const results = originalGetChannelData.apply(this, arguments);
-                    // Introducir pequeñas variaciones para falsear la toma de huellas
-                    for (let i = 0; i < results.length; i += 1000) {
-                        if (Math.random() < 0.001) results[i] = results[i] + Math.random() * 0.0001;
-                    }
-                    return results;
-                };
-            }
-            
-            // Ocultar características de Chrome Automation
-            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;          
-            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;        
-            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;        
-            delete window.navigator.webdriver;
-
-            // Habilitar reproducción automática
-            document.addEventListener('DOMContentLoaded', function() {
-                const autoplayStyles = document.createElement('style');
-                autoplayStyles.innerHTML = `
-                    video, audio {
-                        autoplay: true !important;
-                    }
-                `;
-                document.head.appendChild(autoplayStyles);
-            });
-
-            // Interceptar funciones de HLS.js
-            if (window.Hls || window.hls) {
-                console.log('[M3U8 Detector] HLS detectado en la página');
-            }
-
-            // Interceptar XMLHttpRequest
-            const origOpen = XMLHttpRequest.prototype.open;
-            XMLHttpRequest.prototype.open = function(method, url) {
-                if (url && typeof url === 'string' && (url.includes('.m3u8') || url.includes('m3u') || url.toLowerCase().includes('playlist'))) {
-                    console.log('[M3U8 Detector] URL detectada en XHR:', url);
-                    // Crear un evento personalizado para notificar
-                    const event = new CustomEvent('m3u8Detected', { detail: { url: url, type: 'xhr' } });
-                    document.dispatchEvent(event);
-                }
-                return origOpen.apply(this, arguments);
-            };
-
-            // Interceptar fetch
-            const origFetch = window.fetch;
-            window.fetch = function(url, options) {
-                if (url && typeof url === 'string' && (url.includes('.m3u8') || url.includes('m3u') || url.toLowerCase().includes('playlist'))) {
-                    console.log('[M3U8 Detector] URL detectada en fetch:', url);
-                    // Crear un evento personalizado para notificar
-                    const event = new CustomEvent('m3u8Detected', { detail: { url: url, type: 'fetch' } });
-                    document.dispatchEvent(event);
-                }
-                return origFetch.apply(this, arguments);
-            };
-            
-            // Observar elementos de video y forzar reproducción
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    if (mutation.addedNodes) {
-                        for (const node of mutation.addedNodes) {
-                            if (node.nodeName === 'VIDEO' || node.nodeName === 'AUDIO') {
-                                setTimeout(() => {
-                                    try {
-                                        node.muted = true;
-                                        node.autoplay = true;
-                                        node.play().catch(e => {});
-                                    } catch(e) {}
-                                }, 500);
-                            } else if (node.querySelectorAll) {
-                                const videos = node.querySelectorAll('video, audio');
-                                for (const video of videos) {
-                                    setTimeout(() => {
-                                        try {
-                                            video.muted = true;
-                                            video.autoplay = true;
-                                            video.play().catch(e => {});
-                                        } catch(e) {}
-                                    }, 500);
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            
-            window.addEventListener('DOMContentLoaded', () => {
-                observer.observe(document.body, { childList: true, subtree: true });
-            });
-        """)
-        
-        # Crear una página
-        page = await context.new_page()
-        
-        # Variables para almacenar resultados
-        found_m3u8 = None
-        m3u8_event = asyncio.Event()
-        
-        # Capturar todas las peticiones de red relevantes
-        async def handle_request(request):
-            nonlocal found_m3u8
-            try:
-                url = request.url
-                all_requests.append(url)
-                
-                # Filtros para detectar m3u8 y streams
-                patterns = [
-                    r'\.m3u8', r'\.ts\?', r'playlist', r'manifest', r'\.m3u',
-                    r'chunklist', r'segment', r'stream', r'/hls/', r'/dash/',
-                    r'\.mpd', r'VideoPlayer', r'player', r'content', r'video'
-                ]
-                
-                # Verificar patrones en la URL
-                for pattern in patterns:
-                    if re.search(pattern, url, re.IGNORECASE):
-                        headers = request.headers
-                        potential_m3u8_urls.append((url, dict(headers), 'request'))
-                        logger.debug(f"URL potencial detectada (req): {url}")
-                        
-                        # Si parece muy probable que sea un m3u8, lo guardamos directamente
-                        if '.m3u8' in url or url.endswith('.m3u'):
-                            found_m3u8 = (url, dict(headers))
-                            logger.info(f"M3U8 detectado en solicitud: {url}")
-                            m3u8_event.set()
-            except Exception as e:
-                logger.error(f"Error en handle_request: {e}")
-        
-        async def handle_response(response):
-            nonlocal found_m3u8
-            try:
-                url = response.url
-                status = response.status
-                content_type = response.headers.get('content-type', '').lower()
-                all_responses.append((url, status, content_type))
-                
-                # Filtros para content-type
-                content_types = [
-                    'application/x-mpegurl', 'application/vnd.apple.mpegurl', 
-                    'application/octet-stream', 'video/', 'audio/', 'stream'
-                ]
-                
-                # Verificar si es un tipo MIME de streaming o URL sospechosa
-                is_potential = False
-                for ct in content_types:
-                    if ct in content_type:
-                        is_potential = True
-                        break
-                
-                patterns = [
-                    r'\.m3u8', r'\.ts\?', r'playlist', r'manifest', r'\.m3u',
-                    r'chunklist', r'segment', r'stream', r'/hls/', r'/dash/',
-                    r'\.mpd', r'VideoPlayer', r'player', r'content', r'video'
-                ]
-                
-                for pattern in patterns:
-                    if re.search(pattern, url, re.IGNORECASE):
-                        is_potential = True
-                        break
-                
-                if is_potential:
-                    headers = response.request.headers
-                    potential_m3u8_urls.append((url, dict(headers), 'response'))
-                    logger.debug(f"URL potencial detectada (resp): {url} [CT: {content_type}]")
-                    
-                    # Verificar si es muy probable que sea un m3u8
-                    if '.m3u8' in url or url.endswith('.m3u') or 'mpegurl' in content_type:
-                        found_m3u8 = (url, dict(headers))
-                        logger.info(f"M3U8 detectado en respuesta: {url} [CT: {content_type}]")
-                        m3u8_event.set()
-                    # Si no es obvio, intentar analizar el contenido
-                    elif status == 200 and (
-                        'octet-stream' in content_type or 
-                        'text/plain' in content_type or 
-                        'application/' in content_type
-                    ):
-                        try:
-                            # Verificar los primeros bytes de la respuesta para detectar archivos M3U8
-                            body = await response.body()
-                            text = body.decode('utf-8', errors='ignore')[:500]
-                            if text.startswith('#EXTM3U') or '#EXT-X-STREAM-INF' in text:
-                                found_m3u8 = (url, dict(headers))
-                                logger.info(f"M3U8 detectado por contenido: {url}")
-                                m3u8_event.set()
-                        except Exception as e:
-                            logger.debug(f"Error al analizar respuesta: {e}")
-            except Exception as e:
-                logger.error(f"Error en handle_response: {e}")
-        
-        # Configurar captura de eventos en la consola
-        async def handle_console(msg):
-            text = msg.text
-            if '[M3U8 Detector]' in text or '.m3u8' in text.lower() or 'hls' in text.lower():
-                logger.debug(f"Console: {text}")
-                
-                # Extraer URLs de mensajes de consola
-                url_match = re.search(r'https?://[^\s"\']+\.m3u8[^\s"\']*', text)
-                if url_match:
-                    url = url_match.group(0)
-                    logger.info(f"M3U8 detectado en consola: {url}")
-                    found_m3u8 = (url, {})  # No tenemos cabeceras, pero al menos tenemos la URL
-                    m3u8_event.set()
-        
-        # Escuchar eventos personalizados de la página
-        async def handle_page_event(event):
-            nonlocal found_m3u8
-            try:
-                if event.type == 'm3u8Detected':
-                    detail = event.detail
-                    if detail and 'url' in detail:
-                        url = detail['url']
-                        logger.info(f"M3U8 detectado por evento JS: {url}")
-                        found_m3u8 = (url, {})
-                        m3u8_event.set()
-            except Exception as e:
-                logger.error(f"Error en handle_page_event: {e}")
-        
-        # Configurar interceptores de eventos
-        page.on('request', handle_request)
-        page.on('response', handle_response)
-        page.on('console', handle_console)
-        page.on('pageerror', lambda err: logger.debug(f"Page error: {err}"))
-        
-        # Manejar diálogos automáticamente
-        page.on('dialog', lambda dialog: asyncio.create_task(dialog.accept()))
-        
+        browser = None
+        context = None
+        page = None
         try:
-            # Navegar a la URL con tiempo de espera extendido
-            logger.info(f"Navegando a: {url}")
+            logger.info("Lanzando navegador Chromium...")
+            browser = await p.chromium.launch(headless=True) # Poner False para depurar visualmente
             
-            # Establecer el user agent manualmente para asegurar que se usa
-            await page.evaluate(f"navigator.userAgent = '{user_agent}'")
-            
-            # Navegar a la página
-            response = await page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
-            
-            # Escuchar eventos personalizados
-            await page.expose_function('reportM3U8', lambda url: logger.info(f"M3U8 reportado por página: {url}"))
-            await page.evaluate("""() => {
-        // Forzar reproducción automática de video
-        localStorage.setItem('autoplay', 'true');
-        sessionStorage.setItem('autoplay', 'true');
-        
-        // Desactivar políticas de autoplay
-        document.body.addEventListener('click', () => {
-            document.querySelectorAll('video, audio').forEach(media => {
-                try {
-                    media.muted = true;
-                    media.play().catch(() => {});
-                } catch(e) {}
-            });
-        }, { once: true });
-                document.addEventListener('m3u8Detected', event => {
-                    if (event.detail && event.detail.url) {
-                        window.reportM3U8(event.detail.url);
-                    }
-                });
-            }""")
-            
-            # Simular interacción humana básica
-            await human_like_browsing(page)
-            
-            # Primera ronda: buscar y activar reproductores
-            await find_and_click_play_buttons(page)
-            
-            # Esperar un tiempo para que se carguen recursos
-            logger.info("Esperando detección de M3U8 (primera ronda)...")
+            logger.info("Creando nuevo contexto de navegador...")
+            context = await browser.new_context(
+                user_agent=USER_AGENT,
+                viewport={"width": 1280, "height": 720}, # Simular un tamaño de pantalla común
+                java_script_enabled=True,
+                # Podrías añadir aquí configuraciones de proxy si es necesario
+            )
+            # context.set_default_navigation_timeout(page_load_timeout) # Timeout para navegación
+            context.set_default_timeout(page_load_timeout) # Timeout general para acciones
+
+            logger.info("Creando nueva página...")
+            page = await context.new_page()
+
+            # Registrar manejadores de eventos
+            page.on("request", handle_request)
+            page.on("response", handle_response)
+
+            logger.info(f"Navegando a {target_url}...")
             try:
-                await asyncio.wait_for(m3u8_event.wait(), timeout=30)
-            except asyncio.TimeoutError:
-                logger.info("Iniciando segunda ronda de detección...")
-                
-                # Segunda ronda: intentar técnicas más agresivas
-                await force_video_playback(page)
-                await second_wave_actions(page)
-                
-                # Esperar de nuevo
+                # 'networkidle' espera a que no haya actividad de red por 500ms.
+                # 'domcontentloaded' es más rápido, pero podría no ejecutar todo el JS.
+                # 'load' espera al evento load.
+                # 'commit' espera a que la respuesta inicial sea recibida.
+                await page.goto(target_url, wait_until="networkidle", timeout=page_load_timeout)
+                logger.info(f"Navegación a {target_url} completada (o timeout).")
+            except PlaywrightTimeoutError:
+                logger.warning(f"Timeout durante page.goto({target_url}). Se continuará buscando M3U8 si algo ya se cargó.")
+            except Exception as e:
+                logger.error(f"Error durante page.goto({target_url}): {e}", exc_info=True)
+                # Si page.goto falla catastróficamente, es poco probable que encontremos M3U8
+                # pero los handlers ya podrían haber capturado algo si la navegación empezó.
+
+            if not m3u8_found_event.is_set():
+                # Simular un poco de interacción humana y dar tiempo a JS adicional
+                logger.info("Realizando scroll y esperando un poco más por actividad de red/JS...")
                 try:
-                    await asyncio.wait_for(m3u8_event.wait(), timeout=30)
-                except asyncio.TimeoutError:
-                    logger.info("Iniciando tercera ronda de detección (análisis profundo)...")
-                    
-                    # Tercera ronda: análisis del DOM, interceptar llamadas, etc.
-                    await deep_network_inspection(page)
-                    await process_iframes(page)
-                    
-                    # Última espera
-                    try:
-                        await asyncio.wait_for(m3u8_event.wait(), timeout=30)
-                    except asyncio.TimeoutError:
-                        logger.warning("Tiempo de espera agotado en todas las rondas")
+                    await page.evaluate("window.scrollBy(0, window.innerHeight / 2)")
+                    await asyncio.sleep(1) # Pequeña pausa
+                    await page.evaluate("window.scrollBy(0, window.innerHeight)")
+                    await asyncio.sleep(2) # Pausa un poco más larga
+                except Exception as e:
+                    logger.warning(f"Error durante scroll/sleep post-carga: {e}")
             
-            # Si no se encontró nada, intentamos analizar todas las URLs capturadas
-            if not found_m3u8 and potential_m3u8_urls:
-                # Ordenar las URLs potenciales por probabilidad
-                sorted_urls = analyze_potential_urls(potential_m3u8_urls)
-                if sorted_urls:
-                    best_match, headers, _ = sorted_urls[0]
-                    logger.info(f"Usando mejor coincidencia de URLs potenciales: {best_match}")
-                    found_m3u8 = (best_match, headers)
+            if not m3u8_found_event.is_set():
+                logger.info(f"Esperando hasta {m3u8_wait_timeout}s para que se detecte un M3U8...")
+                try:
+                    await asyncio.wait_for(m3u8_found_event.wait(), timeout=m3u8_wait_timeout)
+                except asyncio.TimeoutError:
+                    logger.warning(f"Timeout esperando el evento M3U8 para {target_url} después de la carga y esperas.")
             
         except Exception as e:
-            logger.error(f"Error durante la navegación: {e}")
+            logger.error(f"Error general en la operación de Playwright para {target_url}: {e}", exc_info=True)
         finally:
-            # Guardar información de depuración
-            if save_har:
+            logger.info("Cerrando recursos de Playwright...")
+            if page:
                 try:
-                    timestamp = int(time.time())
-                    har_path = os.path.join(debug_dir, f"network_{timestamp}.har")
-                    await context.tracing.stop(path=har_path)
-                    logger.info(f"Archivo HAR guardado en: {har_path}")
-                    
-                    # Guardar todas las URLs capturadas
-                    urls_path = os.path.join(debug_dir, f"urls_{timestamp}.json")
-                    with open(urls_path, 'w') as f:
-                        json.dump({
-                            'url_analizada': url,
-                            'solicitudes': all_requests,
-                            'respuestas': [(u, s, c) for u, s, c in all_responses],
-                            'potenciales_m3u8': [(u, h, t) for u, h, t in potential_m3u8_urls]
-                        }, f, indent=2)
-                    logger.info(f"URLs capturadas guardadas en: {urls_path}")
+                    await page.close()
+                    logger.debug("Página cerrada.")
                 except Exception as e:
-                    logger.error(f"Error al guardar archivos de depuración: {e}")
-            
-            # Cerrar el navegador
-            logger.info("Cerrando navegador")
-            await browser.close()
-        
-        if found_m3u8:
-            logger.info(f"✅ M3U8 encontrado: {found_m3u8[0]}")
-        else:
-            logger.info("❌ No se encontró ningún M3U8")
-            
-        return found_m3u8
+                    logger.error(f"Error al cerrar la página: {e}")
+            if context:
+                try:
+                    await context.close()
+                    logger.debug("Contexto cerrado.")
+                except Exception as e:
+                    logger.error(f"Error al cerrar el contexto: {e}")
+            if browser:
+                try:
+                    await browser.close()
+                    logger.debug("Navegador cerrado.")
+                except Exception as e:
+                    logger.error(f"Error al cerrar el navegador: {e}")
 
-async def human_like_browsing(page):
-    """Simula comportamiento de navegación humano"""
-    # Mover el ratón aleatoriamente
-    for _ in range(3):
-        x = random.randint(100, 800)
-        y = random.randint(100, 600)
-        await page.mouse.move(x, y, steps=25)
-        await asyncio.sleep(random.uniform(0.3, 0.7))
-    
-    # Scroll aleatorio
-    for _ in range(2):
-        await page.mouse.wheel(0, random.randint(100, 300))
-        await asyncio.sleep(random.uniform(0.5, 1.0))
-    
-    # Esperar que la página se cargue completamente
-    await page.wait_for_load_state('networkidle')
-    
-    # Esperar un poco más por si hay cargas asíncronas
-    await asyncio.sleep(random.uniform(1, 2))
+    if result_data[0]:
+        logger.info(f"Búsqueda finalizada. M3U8 encontrado para {target_url}: {result_data[0]}")
+        return result_data[0], result_data[1]
+    else:
+        logger.warning(f"Búsqueda finalizada. No se encontró M3U8 para {target_url}")
+        return None, None
 
-async def find_and_click_play_buttons(page):
-    """Busca y hace clic en botones de reproducción de video"""
-    logger.info("Buscando botones de reproducción")
-    
-    # Lista de selectores para botones y áreas de reproducción comunes
-    play_selectors = [
-        'button[aria-label*="play" i]',
-        'button[aria-label*="reproducir" i]',
-        'button[title*="play" i]',
-        'button[title*="reproducir" i]',
-        '.play-button',
-        '.ytp-play-button',
-        '.vjs-play-button',
-        '.jwplayer .jw-icon-play',
-        '.plyr__control--play',
-        '.play',
-        '[class*="play"]',
-        '[id*="play"]',
-        '[aria-label*="play"]',
-        'video',
-        'iframe[src*="youtube"]',
-        'iframe[src*="vimeo"]',
-        'iframe[src*="player"]',
-        'iframe[src*="embed"]',
-        '.video-player',
-        '.player',
-        '[class*="player"]',
-        '[class*="video"]',
-        '[id*="player"]',
-        '[id*="video"]'
-    ]
-    
-    # Buscar elementos que podrían ser botones de reproducción
-    for selector in play_selectors:
-        elements = await page.query_selector_all(selector)
-        for element in elements:
-            try:
-                # Verificar si es visible
-                is_visible = await element.is_visible()
-                if is_visible:
-                    # Hacer clic en el elemento
-                    await element.click(force=True, timeout=1000)
-                    logger.debug(f"Clic en elemento: {selector}")
-                    await asyncio.sleep(0.5)
-            except Exception:
-                pass
-    
-    # Hacer clic en áreas donde suelen estar los reproductores
-    viewport_size = await page.evaluate('() => { return {width: window.innerWidth, height: window.innerHeight} }')
-    center_x = viewport_size['width'] // 2
-    center_y = viewport_size['height'] // 2
-    
-    # Hacer clic en diferentes puntos de la pantalla
-    click_points = [
-        (center_x, center_y),                      # Centro
-        (center_x, center_y - 100),                # Arriba del centro
-        (center_x, center_y * 0.75),               # 3/4 de la pantalla
-        (center_x, viewport_size['height'] * 0.3)  # Parte superior
-    ]
-    
-    for x, y in click_points:
-        try:
-            await page.mouse.click(x, y)
-            logger.debug(f"Clic en posición: ({x}, {y})")
-            await asyncio.sleep(1)
-        except Exception:
-            pass
 
-async def force_video_playback(page):
-    """Intenta forzar la reproducción de videos con JavaScript"""
-    logger.info("Forzando reproducción de videos")
-    
-    # Ejecutar JavaScript para forzar la reproducción
-    await page.evaluate("""() => {
-        // Función para reproducir todos los videos
-        function playAllVideos() {
-            // Reproducir videos estándar
-            document.querySelectorAll('video, audio').forEach(media => {
-                try {
-                    media.muted = true;
-                    media.autoplay = true;
-                    media.controls = true;
-                    media.play()
-                        .then(() => console.log('Video reproducido'))
-                        .catch(e => console.log('Error al reproducir:', e));
-                } catch(e) {}
-            });
-            
-            // Intentar reproducir con API de video.js
-            try {
-                if (window.videojs) {
-                    document.querySelectorAll('.video-js').forEach(el => {
-                        try {
-                            let player = videojs.getPlayer(el) || videojs(el);
-                            if (player) {
-                                player.muted(true);
-                                player.play();
-                            }
-                        } catch(e) {}
-                    });
-                }
-            } catch(e) {}
-            
-            // Intentar reproducir JWPlayer
-            try {
-                if (window.jwplayer) {
-                    [0,1,2,3,4,5].forEach(i => {
-                        try {
-                            let player = window.jwplayer(i);
-                            if (player && player.play) {
-                                player.setMute(true);
-                                player.play();
-                            }
-                        } catch(e) {}
-                    });
-                }
-            } catch(e) {}
-            
-            // Probar reproductor Bitmovin
-            try {
-                if (window.bitmovin && window.bitmovin.player) {
-                    document.querySelectorAll('.bitmovin-player').forEach(el => {
-                        try {
-                            let playerInstance = bitmovin.player(el.id);
-                            if (playerInstance && playerInstance.play) {
-                                playerInstance.mute();
-                                playerInstance.play();
-                            }
-                        } catch(e) {}
-                    });
-                }
-            } catch(e) {}
-            
-            // Intentar reproductor Shaka
-            try {
-                if (window.shaka && document.querySelector('shaka-video')) {
-                    document.querySelectorAll('shaka-video').forEach(el => {
-                        try {
-                            el.muted = true;
-                            el.play();
-                        } catch(e) {}
-                    });
-                }
-            } catch(e) {}
-            
-            // Probar con HLS.js
-            try {
-                if (window.Hls) {
-                    console.log('HLS.js detectado, intentando forzar');
-                    document.querySelectorAll('video').forEach(videoElement => {
-                        try {
-                            let hls = new Hls();
-                            if (videoElement.src) {
-                                hls.loadSource(videoElement.src);
-                                hls.attachMedia(videoElement);
-                                videoElement.play();
-                            }
-                        } catch(e) {}
-                    });
-                }
-            } catch(e) {}
-            
-            // Buscar reproductores genéricos
-            const playerNames = ['player', 'Player', 'videoPlayer', 'videojs', 'myPlayer', 'vjs'];
-            playerNames.forEach(name => {
-                try {
-                    if (window[name] && typeof window[name].play === 'function') {
-                        window[name].play();
-                    }
-                } catch(e) {}
-            });
-        }
-        
-        // Ejecutar inmediatamente y programar para ejecutar nuevamente
-        playAllVideos();
-        setTimeout(playAllVideos, 1000);
-        setTimeout(playAllVideos, 3000);
-        
-        // Interceptar navegación de medios (MediaSource API)
-        try {
-            const origCreateObjectURL = URL.createObjectURL;
-            URL.createObjectURL = function() {
-                const result = origCreateObjectURL.apply(this, arguments);
-                console.log('URL.createObjectURL detectado:', arguments[0], result);
-                if (arguments[0] instanceof MediaSource) {
-                    console.log('MediaSource detectado!');
-                }
-                return result;
-            };
-        } catch(e) {}
-    }""")
-    
-    # Dar tiempo para que se procese
-    await asyncio.sleep(3)
-
-async def second_wave_actions(page):
-    """Implementa técnicas más agresivas para iniciar la reproducción"""
-    logger.info("Ejecutando técnicas avanzadas de detección")
-    
-    # Simular uso de teclado
-    await page.keyboard.press('Space')
-    await asyncio.sleep(1)
-    await page.keyboard.press('k')  # Tecla común para iniciar/pausar video en muchos reproductores
-    await asyncio.sleep(1)
-    
-    # Buscar y hacer clic en elementos ocultos o capas superpuestas
-    await page.evaluate("""() => {
-        // Buscar elementos que podrían estar bloqueando el acceso
-        const overlays = document.querySelectorAll('[class*="overlay"], [class*="modal"], [class*="popup"], [class*="cookie"], [class*="consent"]');
-        overlays.forEach(overlay => {
-            try {
-                overlay.style.display = 'none';
-                overlay.style.visibility = 'hidden';
-                overlay.style.opacity = '0';
-                overlay.style.pointerEvents = 'none';
-            } catch(e) {}
-        });
-        
-        // Eliminar cualquier filtro de obscurecimiento
-        document.querySelectorAll('body, html').forEach(el => {
-            el.style.filter = 'none';
-            el.style.opacity = '1';
-        });
-        
-        // Intentar activar elementos de video a través de eventos simulados
-        const clickEvent = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-        });
-        
-        const playTargets = document.querySelectorAll('video, [class*="play"], [id*="play"], .player, [class*="player"]');
-        playTargets.forEach(target => {
-            try {
-                target.dispatchEvent(clickEvent);
-            } catch(e) {}
-        });
-        
-        // Buscar y extraer URLs de fuentes de video dentro del HTML
-        let extractedUrls = [];
-        
-        // Buscar en atributos de elementos
-        document.querySelectorAll('video, source, object, embed, iframe').forEach(el => {
-            ['src', 'data', 'href'].forEach(attr => {
-                if (el[attr] && typeof el[attr] === 'string') {
-                    extractedUrls.push(el[attr]);
-                }
-            });
-        });
-        
-        // Buscar en inline scripts
-        document.querySelectorAll('script').forEach(script => {
-            if (script.textContent) {
-                const content = script.textContent;
-                const urlMatches = content.match(/['"](https?:\/\/[^'"]+\.m3u8[^'"]*)['"]/g);
-                if (urlMatches) {
-                    urlMatches.forEach(match => {
-                        extractedUrls.push(match.replace(/['"]/g, ''));
-                    });
-                }
-            }
-        });
-        
-        // Reportar URLs encontradas
-        if (extractedUrls.length > 0) {
-            extractedUrls.forEach(url => {
-                console.log('[M3U8 Detector] URL encontrada en DOM:', url);
-                if (url.includes('.m3u8')) {
-                    const event = new CustomEvent('m3u8Detected', { detail: { url: url, type: 'dom' } });
-                    document.dispatchEvent(event);
-                }
-            });
-        }
 
 
 
