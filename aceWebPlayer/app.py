@@ -82,172 +82,187 @@ TEXT_CONTENT_TYPES = [
     "audio/mpegurl",                # M3U8
 ]
 
-async def scan_streams(target_url: str, 
-                            page_load_timeout: int = 60_000, # 60 segundos para carga de página
-                            m3u8_wait_timeout: int = 30 # 30 segundos adicionales para buscar m3u8 después de carga
-                           ) -> tuple[str | None, dict | None]:
-    """
-    Navega a una URL usando Playwright y busca una URL M3U8 en las peticiones o respuestas.
-
-    Args:
-        target_url: La URL principal a visitar.
-        page_load_timeout: Tiempo máximo en ms para que la página cargue.
-        m3u8_wait_timeout: Tiempo máximo en segundos para esperar un M3U8 después de que la página intente cargar.
-
-    Returns:
-        Una tupla (m3u8_url, request_headers) si se encuentra, o (None, None) si no.
-    """
-    logger.info(f"Iniciando búsqueda de M3U8 para: {target_url}")
-
-    m3u8_found_event = asyncio.Event()
-    result_data = [None, None] 
-
-    async def _process_m3u8_found(m3u8_url: str, headers: dict):
-        if not result_data[0]: 
-            logger.info(f"¡M3U8 ENCONTRADO!: {m3u8_url}")
-            logger.debug(f"Cabeceras de la petición asociada: {headers}")
-            result_data[0] = m3u8_url
-            result_data[1] = headers
-            m3u8_found_event.set()
-
-    async def handle_request(request):
-        if m3u8_found_event.is_set():
-            return
-
-        req_url_lower = request.url.lower()
-        if ".m3u8" in req_url_lower:
-            logger.debug(f"Posible M3U8 en URL de petición: {request.url}")
-            await _process_m3u8_found(request.url, request.headers)
-
-    async def handle_response(response):
-        if m3u8_found_event.is_set():
-            return
-
-        res_url_lower = response.url.lower()
-        
-        # --- MODIFICACIÓN PARA MANEJAR 'content_type' ---
-        # Obtener el valor de la cabecera. El error sugiere que podría ser una corrutina.
-        _header_value_result = response.header_value("content-type")
-
-        _raw_content_type = None
-        # Comprobar si el resultado es 'awaitable' (una corrutina)
-        if inspect.isawaitable(_header_value_result):
-            # Si es awaitable, debemos hacer await para obtener el valor real.
-            # Esto puede ser útil si alguna versión/configuración de Playwright devuelve una corrutina aquí.
-            logger.debug(f"response.header_value('content-type') para {response.url} es awaitable. Awaiting...")
-            _raw_content_type = await _header_value_result
-        else:
-            # Si no es awaitable, usar el valor directamente (comportamiento esperado por documentación estándar)
-            _raw_content_type = _header_value_result
-        
-        content_type = _raw_content_type or ""
-        # --- FIN DE LA MODIFICACIÓN ---
-        
-        logger.debug(f"Respuesta recibida de: {response.url} (Status: {response.status}, Tipo: {content_type})")
-
-        # 1. Comprobar URL de la respuesta
-        if ".m3u8" in res_url_lower:
-            logger.debug(f"Posible M3U8 en URL de respuesta: {response.url}")
-            await _process_m3u8_found(response.url, response.request.headers)
-            return
-
-        # 2. Comprobar si el tipo de contenido es directamente M3U8
-        # Ahora content_type debería ser un string, por lo que .lower() funcionará.
-        if any(m3u8_ct in content_type.lower() for m3u8_ct in ["mpegurl", "vnd.apple.mpegurl"]):
-            logger.debug(f"M3U8 detectado por content-type: {response.url}")
-            await _process_m3u8_found(response.url, response.request.headers)
-            return
-
-        # 3. Comprobar contenido del cuerpo si es un tipo de texto relevante
-        is_text_content = any(ct in content_type.lower() for ct in TEXT_CONTENT_TYPES)
-        if is_text_content:
-            try:
-                body = await response.text() # response.text() es correctamente 'async'
-                
-                matches = M3U8_REGEX.findall(body)
-                if matches:
-                    for m3u8_url_in_body in matches:
-                        logger.debug(f"M3U8 encontrado en cuerpo de {response.url}: {m3u8_url_in_body}")
-                        await _process_m3u8_found(m3u8_url_in_body, response.request.headers)
-                        if m3u8_found_event.is_set(): return 
-                
-                elif ".m3u8" in body.lower(): # Búsqueda simple adicional
-                    logger.warning(f"Se encontró '.m3u8' en el cuerpo de {response.url} (búsqueda simple), pero no una URL completa con regex.")
-            except Exception as e:
-                # A veces response.text() puede fallar para ciertos tipos de contenido o respuestas dañadas
-                logger.warning(f"No se pudo leer el cuerpo de la respuesta de {response.url} (content-type: {content_type}): {e}")
-
+async def scan_streams(target_url):
+    found_streams = []
+    event = asyncio.Event()
+    
     async with async_playwright() as p:
-        browser = None
-        context = None
-        page = None
+        # Configuración del navegador
+        prefs = {
+            "media.autoplay.default": 0,  # 0=Allowed, 1=Blocked, 2=Prompt
+            "media.autoplay.blocking_policy": 0, # Deshabilitar política de bloqueo adicional
+            "media.autoplay.allow-muted": True, # A menudo necesario incluso con autoplay permitido
+            "security.mixed_content.block_active_content": False # ¡PELIGROSO! Solo para diagnóstico
+        }
+        
+        browser = await p.firefox.launch(
+            headless=True,
+            firefox_user_prefs=prefs
+        )
+        
+        # Configuración del contexto
+        context = await browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            permissions=['geolocation'],
+            #user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+            ignore_https_errors=True
+        )
+        
+        # Manejo de eventos de red
+        async def handle_request(req):
+            url = req.url
+            if any(x in url for x in [".m3u8",".mp4"]):
+                print(f"Stream encontrado (request): {url}")
+                found_streams.append({
+                    "url": url,
+                    "headers": dict(req.headers),
+                    "source": "request"
+                })
+                event.set()
+                
+        async def handle_response(res):
+            url = res.url
+            if any(x in url for x in [".m3u8",".mp4"]):
+                print(f"Stream encontrado (response): {url}")
+                found_streams.append({
+                    "url": url,
+                    "headers": dict(res.headers),
+                    "source": "response"
+                })
+                event.set()
+        
+        context.on("request", handle_request)
+        context.on("response", handle_response)
+        
+        # Crear página 
+        page = await context.new_page()
+
+                
+        
         try:
-            logger.info("Lanzando navegador Chromium...")
-            browser = await p.chromium.launch(headless=True) 
+            # Navegación inicial
+            await page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
+            print("Página cargada inicialmente")
             
-            logger.info("Creando nuevo contexto de navegador...")
-            context = await browser.new_context(
-                user_agent=USER_AGENT,
-                viewport={"width": 1280, "height": 720},
-                java_script_enabled=True,
-            )
-            context.set_default_timeout(page_load_timeout) 
+            # Esperar carga inicial
+            i=0.1
+            if not found_streams and i > 8:
+                i=i+0.1
+                await asyncio.sleep(0.1)
 
-            logger.info("Creando nueva página...")
-            page = await context.new_page()
-
-            page.on("request", handle_request)
-            page.on("response", handle_response)
-
-            logger.info(f"Navegando a {target_url}...")
+            if not found_streams:
+                # Inyectar script para eliminar características restrictivas
+                await page.evaluate("""() => {
+                    // Eliminar atributos sandbox
+                    document.querySelectorAll('iframe[sandbox]').forEach(iframe => {
+                        iframe.removeAttribute('sandbox');
+                    });
+                    
+                    // Modificar reproductor de video para autoplay
+                    document.querySelectorAll('video').forEach(video => {
+                        video.autoplay = true;
+                        video.muted = true;  // Los navegadores permiten autoplay si está silenciado
+                        video.play().catch(e => console.log('Error al reproducir:', e));
+                    });
+                    
+                    // Simular interacción de usuario
+                    const simulateUserInteraction = () => {
+                        document.body.click();
+                        document.querySelectorAll('video, [class*="player"], [id*="player"]').forEach(el => {
+                            try {
+                                if (el.play) el.play();
+                                el.click();
+                            } catch(e) {}
+                        });
+                    };
+                    
+                    // Ejecutar ahora y después de un tiempo
+                    simulateUserInteraction();
+                    setTimeout(simulateUserInteraction, 3000);
+                }""")
+            
+            # Simular acciones de usuario
+            await page.mouse.move(500, 500)
+            await page.mouse.down()
+            await page.mouse.up()
+            
+            # Intentar hacer clic en elementos conocidos
+            #for selector in ["video", "[class*='play']", "[id*='player']", "iframe"]:
+            #    elements = await page.query_selector_all(selector)
+            #    for element in elements:
+            #        try:
+            #            await element.scroll_into_view_if_needed()
+            #            await element.click(force=True, timeout=1000)
+            #            await asyncio.sleep(2)
+            #        except Exception:
+            #            pass
+            
+            # Buscar y procesar iframes
+            '''
+            if not found_streams:
+                iframe_handles = await page.query_selector_all('iframe')
+                print(f"Encontrados {len(iframe_handles)} iframes")
+                
+                for idx, iframe in enumerate(iframe_handles):
+                    try:
+                        iframe_src = await iframe.get_attribute('src')
+                        if iframe_src:
+                            print(f"Procesando iframe {idx+1}: {iframe_src}")
+                            
+                            # Intentar acceder al contenido del iframe
+                            frame = await iframe.content_frame()
+                            if frame:
+                                # Intentar reproducir videos dentro del iframe
+                                await frame.evaluate("""() => {
+                                    document.querySelectorAll('video').forEach(v => {
+                                        v.autoplay = true;
+                                        v.muted = true;
+                                        v.play().catch(e => {});
+                                    });
+                                    
+                                    // Clic en elementos potenciales
+                                    ['video', '[class*="play"]', '[id*="player"]'].forEach(selector => {
+                                        document.querySelectorAll(selector).forEach(el => {
+                                            try { el.click(); } catch(e) {}
+                                        });
+                                    });
+                                }""")
+                            else:
+                                # Si no podemos acceder al iframe, intenta abrir en nueva pestaña
+                                if iframe_src.startsWith('http'):
+                                    try:
+                                        iframe_page = await context.new_page()
+                                        await iframe_page.goto(iframe_src, timeout=30000)
+                                        await asyncio.sleep(5)
+                                        await iframe_page.close()
+                                    except Exception as e:
+                                        print(f"Error al abrir iframe en nueva pestaña: {e}")
+                    except Exception as e:
+                        print(f"Error procesando iframe {idx+1}: {e}")
+            '''
+            # Esperar para encontrar streams
+            print("Esperando para encontrar streams (60 segundos)...")
             try:
-                await page.goto(target_url, wait_until="networkidle", timeout=page_load_timeout)
-                logger.info(f"Navegación a {target_url} completada (o timeout de carga inicial).")
-            except PlaywrightTimeoutError:
-                logger.warning(f"Timeout durante page.goto({target_url}). Se continuará buscando M3U8 con lo que se haya cargado.")
-            except Exception as e:
-                logger.error(f"Error crítico durante page.goto({target_url}): {e}", exc_info=False) # exc_info=True para más detalle
-                # Continuar por si algo se capturó antes del error completo
-
-            if not m3u8_found_event.is_set():
-                logger.info("Realizando scroll y esperando un poco más por actividad de red/JS...")
-                try:
-                    await page.evaluate("window.scrollBy(0, Math.min(500, window.innerHeight / 2))") # Scroll más pequeño y seguro
-                    await asyncio.sleep(1) 
-                    await page.evaluate("window.scrollBy(0, Math.min(1000, window.innerHeight))") # Scroll más pequeño y seguro
-                    await asyncio.sleep(2) 
-                except Exception as e:
-                    logger.warning(f"Error durante scroll/sleep post-carga: {e}")
+                await asyncio.wait_for(event.wait(), timeout=60)
+                print("¡Stream encontrado!")
+            except asyncio.TimeoutError:
+                print("Timeout sin encontrar streams")
             
-            if not m3u8_found_event.is_set():
-                logger.info(f"Esperando hasta {m3u8_wait_timeout}s adicionales para que se detecte un M3U8...")
-                try:
-                    await asyncio.wait_for(m3u8_found_event.wait(), timeout=m3u8_wait_timeout)
-                except asyncio.TimeoutError:
-                    logger.info(f"Timeout final esperando el evento M3U8 para {target_url}.")
-            
+            # Capturar screenshot y HTML final
+            await page.screenshot(path="screenshot_final.png")
+            final_html = await page.content()
+            with open("web_iptv_final.html", "w", encoding="utf-8") as f:
+                f.write(final_html)
+                
         except Exception as e:
-            logger.error(f"Error general en la operación de Playwright para {target_url}: {e}", exc_info=True)
+            print(f"Error durante la ejecución: {e}")
+            
         finally:
-            logger.info("Cerrando recursos de Playwright...")
-            if page and not page.is_closed():
-                try: await page.close(); logger.debug("Página cerrada.")
-                except Exception as e: logger.error(f"Error al cerrar la página: {e}")
-            if context:
-                try: await context.close(); logger.debug("Contexto cerrado.")
-                except Exception as e: logger.error(f"Error al cerrar el contexto: {e}")
-            if browser:
-                try: await browser.close(); logger.debug("Navegador cerrado.")
-                except Exception as e: logger.error(f"Error al cerrar el navegador: {e}")
-
-    if result_data[0]:
-        logger.info(f"Búsqueda finalizada. M3U8 encontrado para {target_url}: {result_data[0]}")
-        return result_data[0], result_data[1]
-    else:
-        logger.warning(f"Búsqueda finalizada. No se encontró M3U8 para {target_url}")
-        return None, None
-
-
+            print("Manteniendo navegador abierto por 30 segundos para inspección...")
+            #await asyncio.sleep(30)
+            await browser.close()
+    
+    return found_streams
 
 
 
