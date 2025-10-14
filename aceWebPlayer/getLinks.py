@@ -6,7 +6,15 @@ import random
 import requests
 import csv
 from bs4 import BeautifulSoup
+import logging
 import asyncio
+
+# Configuración de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('getLinks')
 
 def normalizar(texto):
     
