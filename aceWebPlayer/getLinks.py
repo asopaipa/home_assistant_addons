@@ -74,6 +74,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                 # Descargar el contenido y procesarlo como archivo M3U
                 response = requests.get(url, timeout=500)
                 html = response.text
+                print(html)
                 print("Inicio de la web")
                 print(html[:500])
                 print("Fin de la web")
