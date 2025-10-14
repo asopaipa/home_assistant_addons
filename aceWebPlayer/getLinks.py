@@ -75,6 +75,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
 
     with open(output_file, "w") as f, open(output_file_remote, "w") as f1:
         for url in urls:
+            logger.info(f"Procesando url: {url}")
             try:
                 # Realizar una solicitud HEAD para comprobar el tipo de contenido
                 response_head = requests.head(url, allow_redirects=True, timeout=500)
@@ -82,14 +83,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                 # Descargar el contenido y procesarlo como archivo M3U
                 response = requests.get(url, timeout=500)
                 html = response.text
-                print("Antes del primer html")
-                print(html)
-                print("Después del primer html") # Si esto no se imprime, el problema está en el print(html) o justo antes.
-                print("Inicio de la web")
-                print(html[:500])
-                print("Fin de la web")
-                print("Después de todo") # Si esto no se imprime, el problema está en la ejecución de los prints anteriores.
-                # Analizamos el HTML en busca de una página de seguridad del zeronet
+                logger.info(f"Contenido: {html[:500]}")# Analizamos el HTML en busca de una página de seguridad del zeronet
                 soup = BeautifulSoup(html, 'html.parser')
                 form = soup.find("form", action="/add/")
                 if form:
@@ -158,9 +152,10 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                                 escribir_m3u(f, f1, f"acestream://{acestream_url}", diccionario, miHost, canal, tipo, con_acexy, protocolo, 
                                            None, None, None)
             except Exception as e:
-                print(f"Error procesando URL {url}: {e}")
+    
+                logger.error(f"Error procesando URL {url}: {e}")
 
-    print(f"Archivos generados: {output_file}, {output_file_remote}")
+    logger.info(f"Archivos generados: {output_file}, {output_file_remote}")
 
 
 def escribir_m3u(f, f1, url, diccionario, miHost, canal, tipo, con_acexy, protocolo="http", 
