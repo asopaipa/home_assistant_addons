@@ -142,13 +142,13 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                                                  grupo_actual, tvg_id_actual, logo_actual)
                         
                 else:
-                    logger.info(f"Entro en el else")
+               
                     if response.status_code == 200:
-                        logger.info(f"Entro en el 200")
+                     
                         content = response.text
-                        matches = re.findall(r'{"name": "(.*?)", "url": "acestream://([a-f0-9]{40})"}', content)
+                        matches = re.findall(r'{\s*"name": "(.*?)", "url": "acestream://([a-f0-9]{40})"\s*}', content)
                         for canal, acestream_url in matches:
-                            logger.info(f"Hay match {acestream_url}")
+                     
                             if acestream_url not in enlaces_unicos:
                                 enlaces_unicos.add(acestream_url)
                                 escribir_m3u(f, f1, f"acestream://{acestream_url}", diccionario, miHost, canal, tipo, con_acexy, protocolo, 
