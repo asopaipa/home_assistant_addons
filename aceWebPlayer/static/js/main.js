@@ -232,6 +232,10 @@ function filterChannels() {
             var channelName = channelItems[j].getElementsByClassName('channel-name')[0];
             var currentProgram = channelItems[j].getElementsByClassName('current-program')[0];
             var nextProgram = channelItems[j].getElementsByClassName('next-program')[0];
+            var onclickValue = channelItems[j].getAttribute('onclick');
+            
+
+            
             
             var textValue = '';
             if (channelName) {
@@ -243,6 +247,13 @@ function filterChannels() {
             if (nextProgram) {
                 textValue += ' ' + (nextProgram.textContent || nextProgram.innerText);
             }
+            if (onclickValue) {
+                var match = onclickValue.match(/loadChannel\('(.+?)'\)/);
+                if (match && match[1]) {
+                    textValue += ' ' + match[1];
+                }
+
+           }
 
             if (textValue.toLowerCase().indexOf(filter) > -1) {
                 channelItems[j].style.display = "";
@@ -439,3 +450,4 @@ document.addEventListener('DOMContentLoaded', function() {
     // Añadir evento de búsqueda
     document.getElementById('searchInput').addEventListener('keyup', filterChannels);
 });
+
