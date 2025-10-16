@@ -146,7 +146,7 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                                     logger.info(f"El enlace no es único, lo descartamos")
                                     
                             elif line.startswith("acestream:"): 
-                                matches = re.findall(r'acestream://([a-f0-9]{40})', content)
+                                matches = re.findall(r'acestream://([a-f0-9]{40})', line)
                                 for acestream_url in matches:
                                     logger.info(f"Analizando enlace: {line}")
                                     if acestream_url not in enlaces_unicos:
