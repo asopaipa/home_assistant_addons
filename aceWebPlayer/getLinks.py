@@ -135,11 +135,27 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                                 grupo_actual = group_match.group(1) if group_match else None
                                 tvg_id_actual = tvg_id_match.group(1) if tvg_id_match else None
                                 logo_actual = logo_match.group(1) if logo_match else None
-                            elif line.startswith("http") or line.startswith("acestream:"):  # Enlace de streaming
+                            elif line.startswith("http"):
+                                logger.info(f"Analizando enlace: {line}")
                                 if line not in enlaces_unicos:
+                                    logger.info(f"Es único, lo mostraramos")
                                     enlaces_unicos.add(line)
                                     escribir_m3u(f, f1, line, diccionario, miHost, canal_actual, tipo, con_acexy, protocolo, 
                                                  grupo_actual, tvg_id_actual, logo_actual)
+                                else:
+                                    logger.info(f"El enlace no es único, lo descartamos")
+                                    
+                            elif line.startswith("acestream:"): 
+                                matches = re.findall(r'acestream://([a-f0-9]{40})', content)
+                                for acestream_url in matches:
+                                    logger.info(f"Analizando enlace: {line}")
+                                    if acestream_url not in enlaces_unicos:
+                                        logger.info(f"Es único, lo mostraramos")
+                                        enlaces_unicos.add(acestream_url)
+                                        escribir_m3u(f, f1, f"acestream://{acestream_url}", diccionario, miHost, canal_actual, tipo, con_acexy, protocolo, 
+                                                     grupo_actual, tvg_id_actual, logo_actual)
+                                    else:
+                                        logger.info(f"El enlace no es único, lo descartamos")
                         
                 else:
                
@@ -148,11 +164,15 @@ def generar_m3u_from_url(miHost, urls, tipo, folder, con_acexy, protocolo="http"
                         content = response.text
                         matches = re.findall(r'{\s*"name": "(.*?)", "url": "acestream://([a-f0-9]{40})"\s*}', content)
                         for canal, acestream_url in matches:
-                     
+                            logger.info(f"Analizando enlace: {acestream_url}")
+                            
                             if acestream_url not in enlaces_unicos:
+                                logger.info(f"Es único, lo mostraramos")
                                 enlaces_unicos.add(acestream_url)
                                 escribir_m3u(f, f1, f"acestream://{acestream_url}", diccionario, miHost, canal, tipo, con_acexy, protocolo, 
                                            None, None, None)
+                            else:
+                                logger.info(f"El enlace no es único, lo descartamos")
             except Exception as e:
     
                 logger.error(f"Error procesando URL {url}: {e}")
